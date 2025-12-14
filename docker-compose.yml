@@ -1,0 +1,10 @@
+services:
+  vekolom:
+    container_name: vekolom
+    env_file:
+      - .env
+    ports:
+      - ${APP_PORT}:${APP_PORT}
+    volumes:
+      - ./:/vekolom
+    restart: unless-stopped

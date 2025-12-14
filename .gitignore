@@ -1,0 +1,17 @@
+node_modules
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.env
+venv
+__pycache__
+poetry.lock
+*.xlsx
+uv.lock

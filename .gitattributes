@@ -1,0 +1,3 @@
+# Все shell-скрипты только с LF
+*.sh text eol=lf
+*.lock text eol=lf

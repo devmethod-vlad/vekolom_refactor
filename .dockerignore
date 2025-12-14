@@ -1,0 +1,17 @@
+# лишнее из контекста
+.git
+**/__pycache__/
+*.py[cod]
+*.log
+
+# venv вне образа
+.venv/
+venv/
+env/
+ENV/
+
+# прочий мусор
+node_modules/
+dist/
+build/
+__pypackages__/
