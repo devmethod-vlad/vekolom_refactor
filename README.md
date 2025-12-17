@@ -1,6 +1,13 @@
 # vekolom
 
-#### Первоначальная генерация uv.lock:
+#### Установка зависимости в контейнер приложения:
 ```bash
-docker run --rm -it -v "${PWD}:/app" -w /app ghcr.io/astral-sh/uv:python3.12-bookworm uv lock
+uv add --no-sync jinja2
 ```
+Если нужно сразу обновить окружение в контейнере
+```bash
+uv sync --no-install-project
+```
+Почему за 2 шага?
+Обычный uv add в конце делает sync c попыткой собрать проект, а у нас нет данных для сборки. Поэтому команда упадет
+Отдельный uv sync --no-install-project делает sync (обновление окружения) без сборки пакета (в сервисе он нам не нужен)

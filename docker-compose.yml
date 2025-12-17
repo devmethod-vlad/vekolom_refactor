@@ -5,6 +5,4 @@ services:
       - .env
     ports:
       - ${APP_PORT}:${APP_PORT}
-    volumes:
-      - ./:/vekolom
     restart: unless-stopped
