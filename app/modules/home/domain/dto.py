@@ -12,7 +12,7 @@ exposes only the search meta information when needed separately.
 from dataclasses import dataclass
 from typing import Sequence
 
-from .entities import Seo, CarouselSlide, MainBlock, ActionItem, Slogan, AcceptItem
+from .entities import Seo, CarouselSlide, MainBlock, ActionItem, Slogan, PriemItem
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,7 +30,7 @@ class HomePageDTO:
     main_blocks: Sequence[MainBlock]
     actions: Sequence[ActionItem]
     slogans: Sequence[Slogan]
-    accept_items: Sequence[AcceptItem]
+    accept_items: Sequence[PriemItem]
     positions: Sequence[dict]
 
 

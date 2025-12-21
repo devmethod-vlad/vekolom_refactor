@@ -4,8 +4,6 @@ services:
       context: .
       target: dev
     command: "uv run --no-sync uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT} --reload"
-    volumes:
-      - ./:/vekolom
     networks:
       - default
       - vekolom-service-network

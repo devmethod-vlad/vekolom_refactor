@@ -10,10 +10,6 @@ control ordering and visibility of items in the future.  The ``id``
 attribute allows admin interfaces to reference the objects without
 leaking database details into higher layers of the application.
 
-Adding ``sort_order`` and ``is_active`` does not break migration from
-the old database because default values are supplied and existing data
-will map cleanly to the new schema.  Should these additional fields not
-be required, they can simply remain at their defaults.
 """
 
 from dataclasses import dataclass
@@ -46,8 +42,6 @@ class CarouselSlide:
     image_path: Optional[str]
     image_webp_path: Optional[str]
     text_html: Optional[str]
-    sort_order: int = 0
-    is_active: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,8 +58,6 @@ class MainBlock:
     id: int
     header: Optional[str]
     text_html: Optional[str]
-    sort_order: int = 0
-    is_active: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,8 +74,6 @@ class ActionItem:
 
     id: int
     text_html: Optional[str]
-    sort_order: int = 0
-    is_active: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,12 +87,10 @@ class Slogan:
 
     id: int
     text_html: Optional[str]
-    sort_order: int = 0
-    is_active: bool = True
 
 
 @dataclass(frozen=True, slots=True)
-class AcceptItem:
+class PriemItem:
     """An item in the 'We accept' list on the home page.
 
     ``header`` corresponds to the heading of the accept block and
@@ -113,5 +101,3 @@ class AcceptItem:
     id: int
     header: Optional[str]
     text_html: Optional[str]
-    sort_order: int = 0
-    is_active: bool = True

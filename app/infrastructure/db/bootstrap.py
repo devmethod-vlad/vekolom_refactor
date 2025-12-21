@@ -20,6 +20,9 @@ _DB_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 # фиксированный ключ advisory lock (одинаковый для всех инстансов приложения)
 MIGRATION_LOCK_KEY = 914_000_123
 
+# расширения, которые должны быть включены в целевой БД
+REQUIRED_EXTENSIONS: tuple[str, ...] = ("pg_trgm",)
+
 
 @dataclass(frozen=True)
 class BootstrapOptions:
@@ -62,11 +65,6 @@ def _resolve_alembic_ini() -> Path:
       2) поиск alembic.ini вверх от текущей рабочей директории (cwd)
       3) поиск alembic.ini вверх от расположения этого файла (bootstrap.py)
       4) как fallback: ищем pyproject.toml и предполагаем, что alembic.ini рядом
-
-    Это покрывает случаи:
-      - запуск uvicorn из корня (cwd=repo root)
-      - запуск из другой папки в Docker/CI
-      - запуск из IDE на Windows, где cwd иногда “пляшет”
     """
     env_path = os.getenv("ALEMBIC_INI")
     if env_path:
@@ -77,18 +75,15 @@ def _resolve_alembic_ini() -> Path:
             return p
         raise FileNotFoundError(f"ALEMBIC_INI задан, но файл не найден: {p}")
 
-    # 2) от cwd
     found = _find_upwards(Path.cwd(), "alembic.ini")
     if found:
         return found
 
-    # 3) от папки bootstrap.py
     here = Path(__file__).resolve().parent
     found = _find_upwards(here, "alembic.ini")
     if found:
         return found
 
-    # 4) fallback через pyproject.toml
     pyproject = _find_upwards(Path.cwd(), "pyproject.toml") or _find_upwards(here, "pyproject.toml")
     if pyproject:
         candidate = pyproject.parent / "alembic.ini"
@@ -159,6 +154,20 @@ def ensure_database_exists(pg: PostgresSettings, *, opts: BootstrapOptions = Boo
     ) from last_err
 
 
+def _ensure_required_extensions(conn) -> None:
+    """
+    Включаем нужные расширения в целевой БД.
+
+    Важно:
+    - расширения включаются *внутри конкретной БД*, поэтому используем соединение
+      именно к pg.sync_dsn (целевой базе).
+    - IF NOT EXISTS делает операцию идемпотентной.
+    """
+    for ext in REQUIRED_EXTENSIONS:
+        logger.info("DB bootstrap: ensuring extension enabled: %s", ext)
+        conn.execute(text(f'CREATE EXTENSION IF NOT EXISTS "{ext}";'))
+
+
 def run_alembic_upgrade(pg: PostgresSettings) -> None:
     """
     Прогоняет `alembic upgrade head` под advisory lock, чтобы миграции
@@ -179,9 +188,15 @@ def run_alembic_upgrade(pg: PostgresSettings) -> None:
         logger.info("DB bootstrap: advisory lock acquired")
 
         try:
-            alembic_cfg = Config(str(alembic_ini))
+            # 1) Включаем расширения ДО миграций (под тем же lock)
+            _ensure_required_extensions(conn)
 
-            # На всякий случай — явно задаём url (даже если в alembic.ini пусто)
+            # Важно: Alembic будет работать через другое соединение.
+            # Поэтому фиксируем изменения, чтобы миграции "увидели" extension.
+            conn.commit()
+
+            # 2) Запускаем миграции Alembic
+            alembic_cfg = Config(str(alembic_ini))
             alembic_cfg.set_main_option("sqlalchemy.url", str(pg.sync_dsn))
 
             logger.info("DB bootstrap: running alembic upgrade head ...")
@@ -200,7 +215,7 @@ def bootstrap_database(pg: PostgresSettings) -> None:
     """
     Точка входа:
       1) создаём БД, если её нет
-      2) применяем миграции Alembic до head
+      2) включаем расширения (pg_trgm) и применяем миграции Alembic до head
 
     Вызывается на старте приложения (обычно из FastAPI lifespan),
     чтобы приложение принимало запросы только с валидной БД-структурой.

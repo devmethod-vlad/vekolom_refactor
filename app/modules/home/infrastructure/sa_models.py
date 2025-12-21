@@ -30,7 +30,7 @@ For list screens and home page rendering we almost always query:
 So we add a composite index `(is_active, sort_order, id)` for those tables.
 """
 
-from sqlalchemy import Boolean, Index, Integer, String, Text
+from sqlalchemy import Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.db.base import Base
@@ -46,25 +46,48 @@ class CoreSeo(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    __table_args__ = (
+        Index(
+            "ix_core_coreseo_title_trgm",
+            "title",
+            postgresql_using="gin",
+            postgresql_ops={"title": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_core_coreseo_description_trgm",
+            "description",
+            postgresql_using="gin",
+            postgresql_ops={"description": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_core_coreseo_keywords_trgm",
+            "keywords",
+            postgresql_using="gin",
+            postgresql_ops={"keywords": "gin_trgm_ops"},
+        ),
+    )
+
 
 class MainCarousel(Base):
     """A slide in the home page carousel (legacy table `maincarousel`)."""
 
     __tablename__ = "maincarousel"
 
-    __table_args__ = (
-        Index("ix_maincarousel_active_order", "is_active", "sort_order", "id"),
-    )
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     photo: Mapped[str | None] = mapped_column(String(300), nullable=True)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
     photo_amp: Mapped[str | None] = mapped_column(String(300), nullable=True)
     photo_turbo: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    photo_webp: Mapped[str | None] = mapped_column(String(600), nullable=True)
+    photo_webp: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    __table_args__ = (
+        Index(
+            "ix_maincarousel_text_trgm",
+            "text",
+            postgresql_using="gin",
+            postgresql_ops={"text": "gin_trgm_ops"},
+        )
+    )
 
 
 class MainText(Base):
@@ -72,16 +95,24 @@ class MainText(Base):
 
     __tablename__ = "maintext"
 
-    __table_args__ = (
-        Index("ix_maintext_active_order", "is_active", "sort_order", "id"),
-    )
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     header: Mapped[str | None] = mapped_column(String(300), nullable=True)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    __table_args__ = (
+        Index(
+            "ix_maintext_header_trgm",
+            "header",
+            postgresql_using="gin",
+            postgresql_ops={"header": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_maintext_text_trgm",
+            "text",
+            postgresql_using="gin",
+            postgresql_ops={"text": "gin_trgm_ops"},
+        ),
+    )
 
 
 class Action(Base):
@@ -89,32 +120,42 @@ class Action(Base):
 
     __tablename__ = "actions"
 
-    __table_args__ = (
-        Index("ix_actions_active_order", "is_active", "sort_order", "id"),
-    )
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    __table_args__ = (
+        Index(
+            "ix_actions_text_trgm",
+            "text",
+            postgresql_using="gin",
+            postgresql_ops={"text": "gin_trgm_ops"},
+        )
+    )
 
 
-class Accept(Base):
+class Priem(Base):
     """An item in the 'we accept' section (legacy table `priem`)."""
 
     __tablename__ = "priem"
-
-    __table_args__ = (
-        Index("ix_priem_active_order", "is_active", "sort_order", "id"),
-    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     header: Mapped[str | None] = mapped_column(String(300), nullable=True)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    __table_args__ = (
+        Index(
+            "ix_priem_header_trgm",
+            "header",
+            postgresql_using="gin",
+            postgresql_ops={"header": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_priem_text_trgm",
+            "text",
+            postgresql_using="gin",
+            postgresql_ops={"text": "gin_trgm_ops"},
+        )
+    )
 
 
 class Slogan(Base):
@@ -122,12 +163,14 @@ class Slogan(Base):
 
     __tablename__ = "slogan1"
 
-    __table_args__ = (
-        Index("ix_slogan1_active_order", "is_active", "sort_order", "id"),
-    )
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    __table_args__ = (
+        Index(
+            "ix_slogan1_text_trgm",
+            "text",
+            postgresql_using="gin",
+            postgresql_ops={"text": "gin_trgm_ops"},
+        )
+    )

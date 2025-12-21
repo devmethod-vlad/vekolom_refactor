@@ -18,7 +18,7 @@ from .entities import (
     MainBlock,
     ActionItem,
     Slogan,
-    AcceptItem,
+    PriemItem,
 )
 
 
@@ -59,7 +59,7 @@ class HomeReadRepository(Protocol):
         ``sort_order`` then ``id``.
         """
 
-    async def list_accept_items(self) -> Sequence[AcceptItem]:
+    async def list_priem_items(self) -> Sequence[PriemItem]:
         """Return all 'we accept' items in ascending order.
 
         Inactive records should be excluded; ordering should follow

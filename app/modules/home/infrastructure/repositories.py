@@ -24,10 +24,10 @@ from app.modules.home.domain.entities import (
     MainBlock,
     ActionItem,
     Slogan,
-    AcceptItem,
+    PriemItem,
 )
 from app.modules.home.domain.repositories import HomeReadRepository
-from .sa_models import CoreSeo, MainCarousel, MainText, Action, Accept, Slogan as SloganORM
+from .sa_models import CoreSeo, MainCarousel, MainText, Action, Priem, Slogan as SloganORM
 
 
 class SAHomeReadRepository(HomeReadRepository):
@@ -57,9 +57,7 @@ class SAHomeReadRepository(HomeReadRepository):
                 id=row.id,
                 image_path=row.photo,
                 image_webp_path=row.photo_webp,
-                text_html=row.text,
-                sort_order=row.sort_order,
-                is_active=row.is_active,
+                text_html=row.text
             )
             for row in rows
         ]
@@ -76,9 +74,7 @@ class SAHomeReadRepository(HomeReadRepository):
             MainBlock(
                 id=row.id,
                 header=row.header,
-                text_html=row.text,
-                sort_order=row.sort_order,
-                is_active=row.is_active,
+                text_html=row.text
             )
             for row in rows
         ]
@@ -94,9 +90,7 @@ class SAHomeReadRepository(HomeReadRepository):
         return [
             ActionItem(
                 id=row.id,
-                text_html=row.text,
-                sort_order=row.sort_order,
-                is_active=row.is_active,
+                text_html=row.text
             )
             for row in rows
         ]
@@ -112,28 +106,24 @@ class SAHomeReadRepository(HomeReadRepository):
         return [
             Slogan(
                 id=row.id,
-                text_html=row.text,
-                sort_order=row.sort_order,
-                is_active=row.is_active,
+                text_html=row.text
             )
             for row in rows
         ]
 
-    async def list_accept_items(self) -> Sequence[AcceptItem]:
+    async def list_priem_items(self) -> Sequence[PriemItem]:
         stmt = (
-            select(Accept)
-            .where(Accept.is_active.is_(True))
-            .order_by(Accept.sort_order.asc(), Accept.id.asc())
+            select(Priem)
+            .where(Priem.is_active.is_(True))
+            .order_by(Priem.sort_order.asc(), Priem.id.asc())
         )
         result = await self._session.execute(stmt)
-        rows: list[Accept] = result.scalars().all()
+        rows: list[Priem] = result.scalars().all()
         return [
-            AcceptItem(
+            PriemItem(
                 id=row.id,
                 header=row.header,
-                text_html=row.text,
-                sort_order=row.sort_order,
-                is_active=row.is_active,
+                text_html=row.text
             )
             for row in rows
         ]

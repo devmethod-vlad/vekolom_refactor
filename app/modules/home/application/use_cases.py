@@ -28,7 +28,7 @@ class GetHomePage:
             main_blocks = await uow.home.list_main_blocks()
             actions = await uow.home.list_actions()
             slogans = await uow.home.list_slogans()
-            accept_items = await uow.home.list_accept_items()
+            accept_items = await uow.home.list_priem_items()
             positions = await uow.home.list_positions()
 
         return HomePageDTO(
