@@ -66,4 +66,4 @@ FROM runtime-base AS dev
 # Для dev нам нужна .venv с dev-зависимостями:
 COPY --from=deps-dev /opt/venv /opt/venv
 # Код НЕ копируем — он будет примонтирован томом в compose
-CMD ["sleep", "infinity"]
+#CMD ["sleep", "infinity"]
