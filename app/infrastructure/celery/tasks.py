@@ -34,6 +34,7 @@ from sqlalchemy import create_engine, update
 from app.infrastructure.celery.worker import celery_app
 from app.infrastructure.media.image_processor import make_webp_sync
 from app.modules.home.infrastructure.sa_models import MainCarousel
+from app.modules.pricelist.application.excel_export import generate_pricelist_xlsx
 from app.modules.pricelist.infrastructure.sa_models import Foto, Position
 from app.settings.config import settings
 
@@ -201,5 +202,24 @@ def foto_to_webp(self, foto_id: int, foto_relative_path: str) -> None:
                 .where(Foto.id == foto_id)
                 .values(foto_webp=webp_url)
             )
+    finally:
+        engine.dispose()
+
+@celery_app.task(
+    bind=True,
+    acks_late=True,
+    max_retries=3,
+    default_retry_delay=10,
+)
+def regenerate_pricelist_excel(self) -> None:
+    """Regenerates static/excel/pricelist.xlsx from current DB state."""
+    engine = create_engine(settings.database.sync_dsn, pool_pre_ping=True)
+    try:
+        from sqlalchemy.orm import Session
+
+        with Session(engine) as session:
+            generate_pricelist_xlsx(session)
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=10)
     finally:
         engine.dispose()

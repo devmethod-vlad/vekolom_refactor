@@ -25,7 +25,11 @@ from app.admin.utils.photo_upload import handle_photo_upload
 from app.admin.fields import AdminImageField, LocalTinyMCEEditorField, RichTextUploadField
 from app.admin.views.base import BaseAdminView
 from app.infrastructure.media.image_processor import save_position_photo_sync
-from app.infrastructure.celery.tasks import position_photo_to_webp, foto_to_webp
+from app.infrastructure.celery.tasks import (
+    foto_to_webp,
+    position_photo_to_webp,
+    regenerate_pricelist_excel,
+)
 from app.modules.pricelist.infrastructure.sa_models import (
     Category,
     Foto,
@@ -47,6 +51,7 @@ class CategoryView(BaseAdminView):
     стандартное отображение всех полей.
     description использует RichTextUploadingField → RichTextUploadField.
     """
+    model = Category
 
     label = "Категории"
     name = "Категория"
@@ -96,7 +101,7 @@ class PositionView(BaseAdminView):
         - При сохранении фото (photo2) запускается Celery-задача position_photo_to_webp.
         - photo2_webp / avatar_webp заполняются автоматически.
     """
-
+    model = Position
     label = "Позиции"
     name = "Позиция"
     icon = "fa fa-list-alt"
@@ -226,14 +231,20 @@ class PositionView(BaseAdminView):
     # ------------------------------------------------------------------
 
     async def after_create(self, request: Request, obj: Any) -> None:
-        """Запускает конвертацию в WebP после создания позиции."""
+        """Запускает фоновые задачи после создания позиции."""
         if obj.photo2:
             position_photo_to_webp.delay(obj.id, obj.photo2)
+        regenerate_pricelist_excel.delay()
 
     async def after_edit(self, request: Request, obj: Any) -> None:
-        """Запускает конвертацию в WebP после редактирования (если фото изменилось)."""
+        """Запускает фоновые задачи после редактирования позиции."""
         if obj.photo2:
             position_photo_to_webp.delay(obj.id, obj.photo2)
+        regenerate_pricelist_excel.delay()
+
+    async def after_delete(self, request: Request, obj: Any) -> None:
+        """Обновляет Excel после удаления позиции."""
+        regenerate_pricelist_excel.delay()
 
 
 # ---------------------------------------------------------------------------
@@ -250,7 +261,7 @@ class FotoView(BaseAdminView):
         list_per_page = 20
         admin_thumbnail = AdminThumbnail(image_field='avatarfoto')
     """
-
+    model = Foto
     label = "Фото прайса"
     name = "Фото"
     icon = "fa fa-camera"
@@ -327,11 +338,8 @@ class FotoView(BaseAdminView):
 
 
 class PriceDateView(BaseAdminView):
-    """Управление датой прайс-листа.
-
-    Аналог Django: admin.site.register(PriceDate) — без кастомизации.
-    """
-
+    """Управление датой прайс-листа."""
+    model = PriceDate
     label = "Дата прайса"
     name = "Дата прайса"
     icon = "fa fa-calendar"
@@ -340,6 +348,19 @@ class PriceDateView(BaseAdminView):
         "id": "ID",
         "date": "Дата прайса",
     }
+
+    async def after_create(self, request: Request, obj: Any) -> None:
+        """Обновляет Excel после создания записи даты прайса."""
+        regenerate_pricelist_excel.delay()
+
+    async def after_edit(self, request: Request, obj: Any) -> None:
+        """Обновляет Excel после редактирования записи даты прайса."""
+        regenerate_pricelist_excel.delay()
+
+    async def after_delete(self, request: Request, obj: Any) -> None:
+        """Обновляет Excel после удаления записи даты прайса."""
+        regenerate_pricelist_excel.delay()
+
 
 
 # ---------------------------------------------------------------------------
@@ -352,7 +373,7 @@ class PricelistSeoView(BaseAdminView):
 
     Аналог Django: admin.site.register(PricelistSeo) — без кастомизации.
     """
-
+    model = PricelistSeo
     label = "SEO прайс-листа"
     name = "SEO прайс-листа"
     icon = "fa fa-search-plus"

@@ -64,7 +64,7 @@
         {# --- Скачать прайс + дата актуальности --- #}
         <div class="row">
             <div class="col-md-7 col-sm-7 col-xs-12">
-                <a href="/media/media/exel/PriceVeko.xlsx" download>
+                <a href="{{ request.url_for('static', path='excel/pricelist.xlsx') }}" download>
                     <h4>Скачать&nbsp;<amp-img layout="fixed" width="36" height="40"
                         src="{{ request.url_for('static', path='images/common/excel-icon.png') }}"
                         alt="Excel"></amp-img></h4>

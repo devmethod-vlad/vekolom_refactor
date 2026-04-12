@@ -46,6 +46,7 @@ dependencies = [
   # User-agent parsing (оставляем, может понадобиться позже)
   "user-agents>=2.2.0",
   "httpx>=0.28.1",
+  "openpyxl>=3.1.5",
 ]
 
 [project.optional-dependencies]
