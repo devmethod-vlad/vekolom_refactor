@@ -1,0 +1,465 @@
+{% extends 'base.html' %}
+{#
+  Jinja2 index template — адаптировано из core/dev/main.html (Django).
+
+  Ключевые отличия от Django-шаблона:
+  1. {% load static %} — убран (не нужен в Jinja2).
+  2. {% static '...' %} → {{ request.url_for('static', path='home/...') }}
+  3. seo — одиночный объект Seo | None, итерация из base.html убрана.
+  4. slide.photo.url (ImageField) → /media/{{ slide.photo }}
+     slide.photo_webp хранит полный путь /media/media/name.webp — используется напрямую.
+  5. action1/action2/action3 — отдельные объекты ActionItem | None (не список).
+  6. slogan1 — Sequence[Slogan], итерируем {% for slogan in slogan1 %}.
+  7. priem   — Sequence[PriemItem], итерируем {% for p in priem %}.
+  8. Проверка iOS (django-user-agents) → <picture> с webp/jpg fallback в футере.
+  9. debug_flag передаётся из роутера (settings.DEBUG).
+
+  SEO-изменения:
+  - Добавлен canonical URL.
+  - Добавлены Open Graph мета-теги.
+  - Добавлены JSON-LD структурированные данные (LocalBusiness).
+  - Изображения с data-src дублируются в <noscript> для поисковых роботов.
+  - Добавлен preconnect к Google Maps API.
+  - Добавлены alt-атрибуты ко всем изображениям.
+
+  Контекст роутера:
+    seo, slides, main, action1, action2, action3, slogan1, priem, positions, debug_flag
+#}
+
+{# --- SEO: canonical URL для главной страницы --- #}
+{% block canonical %}
+    <link rel="canonical" href="{{ site_url }}/">
+{% endblock %}
+
+{# --- SEO: Open Graph мета-теги для главной страницы --- #}
+{% block og_meta %}
+    {% if seo %}
+    <meta property="og:title" content="{{ seo.title }}">
+    <meta property="og:description" content="{{ seo.description }}">
+    {% endif %}
+    <meta property="og:url" content="{{ site_url }}/">
+    <meta property="og:image" content="{{ og_image_default }}">
+{% endblock %}
+
+{% block link_amp %}
+    <link rel="amphtml" href="{{ site_url }}/amp/">
+{% endblock %}
+
+{# --- Preconnect к Yandex Maps API (используется в footer) --- #}
+{% block header_js %}
+    <link rel="preconnect" href="https://api-maps.yandex.ru">
+    <link rel="dns-prefetch" href="https://api-maps.yandex.ru">
+{% endblock %}
+
+{% block header %}
+    <header>
+        <div id="stuck_container" class="stuck_container">
+            <div class="wr">
+                <div class="custom-navbar-header">
+                    <div class="brand-wrapper">
+                        <div class="brand-header-wr">
+                            <a href="/">
+                                <h1 class="custom-brand">ВЕКО</h1>
+                            </a>
+                        </div>
+                        <div class="logo-header-wr">
+                            <img alt="Приём электронного лома — Веколом"
+                                 class="custom-brand-responsive"
+                                 width="150" height="50"
+                                 src="{{ request.url_for('static', path='images/common/logo.png') }}">
+                        </div>
+                    </div>
+                    <div class="slogan-wrapper">
+                        <p class="navbar-brand-slogan">ПРИЕМ <br>ЭЛЕКТРОННОГО ЛОМА</p>
+                    </div>
+                    <div class="phone-wrapper">
+                        <div class="phones">
+                            <p class="navbar-phone-item"><a href="tel:+74994998474">8(499)499-84-74</a></p>
+                            <p class="navbar-phone-item"><a href="tel:+79175995222">8(917)599-52-22</a></p>
+                            <p class="navbar-phone-item">
+                                <a href="https://wa.me/79265090263">
+                                    8(926)509-02-63&nbsp;&nbsp;<img width="20" height="20" alt="WhatsApp"
+                                        src="{{ request.url_for('static', path='images/common/whatsapp_150.png') }}">
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <nav class="customnavbar custom-navbar-default custom-navbar-static-top">
+                    <div class="custom-navbar-nav custom-sf-menu custom-navbar-right">
+                        <div class="nav-item nav-item-active">
+                            <div class="item"><a href="/">Главная</a></div>
+                        </div>
+                        <div class="nav-item">
+                            <div class="item"><a href="/pricelist/">Прайс-лист</a></div>
+                        </div>
+                        <div class="nav-item">
+                            <div class="item"><a href="/contacts/">Контакты</a></div>
+                        </div>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </header>
+{% endblock %}
+
+{% block content %}
+
+{# ------------------------------------------------------------------ #}
+{# Карусель                                                            #}
+{# ------------------------------------------------------------------ #}
+{% block carousel %}
+<section class="camera_container">
+    <div id="camera" class="camera_wrap">
+        {% for slide in slides %}
+        {#
+          Django: data-src="{{ slide.photo.url }}" — ImageField.url возвращал полный URL.
+          Теперь slide.photo — строка "media/filename.jpg", поэтому вручную префиксим /media/.
+          slide.photo_webp хранит полный путь (/media/media/name.webp), используется как есть.
+        #}
+        <div data-src="/media/{{ slide.photo }}">
+            <div class="camera_caption fadeIn">
+                <div class="container">
+                    <h2>{{ slide.text | safe }}</h2>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {# SEO: <noscript> fallback — поисковые роботы без JS увидят изображения карусели.
+       Краулеры Google и Яндекса обычно исполняют JS, но fallback гарантирует
+       индексацию изображений в любом случае. #}
+    <noscript>
+        {% for slide in slides %}
+        <img src="/media/{{ slide.photo }}" alt="{{ slide.text | striptags }}" loading="lazy">
+        {% endfor %}
+    </noscript>
+</section>
+{% endblock %}
+
+{# ------------------------------------------------------------------ #}
+{# Главный текстовый блок                                             #}
+{# ------------------------------------------------------------------ #}
+<section class="well3 well3-main bg-lighter wow fadeIn">
+    <div class="container">
+        {% for m in main %}
+        <div class="row">
+            <div class="col-md-12 col-sm-12 col-xs-12">
+                <div class="centered main-centered">
+                    <h3 class="h3--mod">{{ m.header }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-7 col-sm-7 col-xs-12">
+                <div class="maintext">
+                    {{ m.text | safe }}
+                </div>
+            </div>
+            <div class="col-md-5 col-sm-5 col-xs-12">
+                <div class="thumbnail thumbnail4">
+                    <a class="overlay" href="/contacts/">
+                        {# SEO: src + data-src — краулеры видят src, LazyLoad использует data-src #}
+                        <img src="{{ request.url_for('static', path='images/entries/home/img-vibe.jpg') }}"
+                             data-src="{{ request.url_for('static', path='images/entries/home/img-vibe.jpg') }}"
+                             alt="Контакты — приём электронного лома"
+                             loading="lazy">
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Блоки действий (action1 / action2 / action3)                       #}
+{# ------------------------------------------------------------------ #}
+<section class="well-advantages well--mod bg-default">
+    <div class="container">
+        <ul class="icon-list row col-4_mod-list">
+            <li class="col-md-4 col-sm-6 col-xs-12">
+                <div class="block-icon">
+                    <div class="icon">
+                        {# SEO: src + data-src для видимости краулерам #}
+                        <img width="120" height="120"
+                             alt="{{ action1.text | striptags if action1 else 'Переработка' }}"
+                             class="action-icon"
+                             src="{{ request.url_for('static', path='images/entries/home/recycle_icon.png') }}"
+                             data-src="{{ request.url_for('static', path='images/entries/home/recycle_icon.png') }}"
+                             loading="lazy">
+                    </div>
+                    {% if action1 %}
+                    <div class="pactions">{{ action1.text | safe }}</div>
+                    {% endif %}
+                </div>
+            </li>
+            <li class="col-md-4 col-sm-6 col-xs-12">
+                <div class="block-icon">
+                    <div class="icon">
+                        <img width="120" height="120"
+                             alt="{{ action2.text | striptags if action2 else 'Доставка' }}"
+                             class="action-icon"
+                             src="{{ request.url_for('static', path='images/entries/home/truck_icon.png') }}"
+                             data-src="{{ request.url_for('static', path='images/entries/home/truck_icon.png') }}"
+                             loading="lazy">
+                    </div>
+                    {% if action2 %}
+                    <div class="pactions">{{ action2.text | safe }}</div>
+                    {% endif %}
+                </div>
+            </li>
+            <li class="col-md-4 col-sm-6 col-xs-12">
+                <div class="block-icon">
+                    <div class="icon">
+                        <img width="120" height="120"
+                             alt="{{ action3.text | striptags if action3 else 'Оплата' }}"
+                             class="action-icon"
+                             src="{{ request.url_for('static', path='images/entries/home/ruble_icon.png') }}"
+                             data-src="{{ request.url_for('static', path='images/entries/home/ruble_icon.png') }}"
+                             loading="lazy">
+                    </div>
+                    {% if action3 %}
+                    <div class="pactions">{{ action3.text | safe }}</div>
+                    {% endif %}
+                </div>
+            </li>
+        </ul>
+    </div>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Параллакс / Слоган                                                  #}
+{# ------------------------------------------------------------------ #}
+<section class="parallax well1"
+         data-url="{{ request.url_for('static', path='images/entries/home/parallax-1.jpg') }}"
+         data-mobile="true"
+         data-speed="3">
+    <div class="container text-center">
+        {% for slogan in slogan1 %}
+        <h4>{{ slogan.text | safe }}</h4>
+        {% endfor %}
+        <a href="/contacts/" class="btn btn-primary btn-lg">Оставьте сообщение</a>
+    </div>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Мы принимаем                                                        #}
+{# ------------------------------------------------------------------ #}
+<section class="well2">
+    <div class="container">
+        <h2 class="text-center">МЫ ПРИНИМАЕМ</h2>
+        <div class="row offset">
+            {% if priem | length == 3 %}
+                {% for p in priem %}
+                <div class="col-md-4 col-sm-4 col-xs-12 wow fadeIn"
+                     data-wow-duration="2s" data-wow-delay="0.3s">
+                    <h4 class="ls--mod">{{ p.header }}</h4>
+                    {{ p.text | safe }}
+                </div>
+                {% endfor %}
+                <div class="col-md-12 col-sm-12 col-xs-12 wow fadeIn mypadding"
+                     data-wow-duration="2s" data-wow-delay="0.2s">
+                    <a href="/pricelist/" class="btn-link offset-2">ПОДРОБНЕЕ</a>
+                </div>
+            {% else %}
+                {% for p in priem %}
+                <div class="col-md-5 col-md-offset-1 col-sm-5 col-sm-offset-1 col-xs-12 wow fadeIn"
+                     data-wow-duration="2s" data-wow-delay="0.4s">
+                    <h4 class="ls--mod">{{ p.header }}</h4>
+                    {{ p.text | safe }}
+                </div>
+                {% endfor %}
+                <div class="col-md-11 col-md-offset-1 col-sm-11 col-sm-offset-1 col-xs-12 wow fadeIn mypadding"
+                     data-wow-duration="2s" data-wow-delay="0.2s">
+                    <a href="/pricelist/" class="btn-link offset-2">ПОДРОБНЕЕ</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Позиции прайс-листа                                                 #}
+{# ------------------------------------------------------------------ #}
+<section class="well4">
+    <div class="container text-center">
+        <div class="row col-4_mod mod">
+            {% for position in positions %}
+            <div class="col-md-4 col-sm-6 col-xs-12">
+                <div class="myname">{{ position.name }}</div>
+                <div class="myprice">{{ position.price }}</div>
+                {#
+                  После миграции pricelist-модуля photo2/avatar будут строками-путями.
+                  Если репозиторий вернёт их как относительные пути — префиксировать /media/.
+                  Если уже как полные URL — использовать напрямую.
+                #}
+                <a href="/media/{{ position.photo2 }}" data-fancybox-group="1" class="thumb">
+                    <img src="/media/{{ position.avatar }}"
+                         alt="{{ position.name }}"
+                         loading="lazy">
+                    <span class="thumb_overlay"></span>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        <a href="/pricelist/" class="btn btn-primary btn-sm">Полный прайс-лист</a>
+    </div>
+</section>
+
+<hr>
+
+{% endblock %}
+
+{# ------------------------------------------------------------------ #}
+{# Footer                                                              #}
+{# ------------------------------------------------------------------ #}
+{% block footer %}
+    {#
+      В Django: {% if request.user_agent.os.family == 'IOS' %} (пакет django-user-agents).
+      В FastAPI/Jinja2 такого хелпера нет — используем <picture>,
+      браузер сам выберет webp где поддерживается, jpg — как fallback.
+    #}
+    <footer style="position: relative; background: #3a393a; color: #fff; overflow: hidden;">
+        <picture>
+            <source srcset="{{ request.url_for('static', path='images/common/footer_bg.webp') }}" type="image/webp">
+            <img src="{{ request.url_for('static', path='images/common/footer_bg.jpg') }}"
+                 style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:0; pointer-events:none;"
+                 alt=""
+                 loading="lazy">
+        </picture>
+        <section class="center767" style="position: relative; z-index: 1;">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-4 col-sm-6 col-xs-12">
+                        <h5>Звоните или пишите нам</h5>
+                        <p class="pcustom pcustom-footer"><a class="a-pcustom-footer" href="tel:+74994998474">8(499)499-84-74</a></p>
+                        <p class="pcustom pcustom-footer"><a class="a-pcustom-footer" href="tel:+79175995222">8(917)599-52-22</a></p>
+                        <p class="pcustom pcustom-footer">
+                            <a class="a-pcustom-footer" href="https://wa.me/79265090263">
+                                8(926)509-02-63&nbsp;&nbsp;<img width="20" height="20" alt="WhatsApp"
+                                    src="{{ request.url_for('static', path='images/common/whatsapp_150.png') }}">
+                            </a>
+                        </p>
+                        <p class="pcustom pcustom-footer"><a class="a-pcustom-footer" href="mailto:vekomet@gmail.com">vekomet@gmail.com</a></p>
+                        <p class="pcustom"><a href="/contacts/">Оставить сообщение</a></p>
+                    </div>
+                    <div class="col-md-offset-1 col-md-3 col-sm-6 col-sm-offset-0 col-xs-12">
+                        <h5>Мы находимся по адресу:</h5>
+                        <p class="pcustom">Московская область</p>
+                        <p class="pcustom">г.Электросталь. ул.Пионерская 22</p>
+                        <p class="pcustom">График работы:</p>
+                        <p class="pcustom">пн-пт: 8.00-18.00 | cб: 8.00-12.00</p>
+                        <p class="pcustom">обед: 13.00-14.00</p>
+                        <p class="pcustom">вс: выходной</p>
+                    </div>
+                    <div class="col-md-4 col-sm-4 col-xs-12">
+                        <div class="logo-footer-wrapper">
+                            {# SEO: src + data-src для видимости краулерам #}
+                            <img alt="Электронный лом" class="img-responsive"
+                                 src="{{ request.url_for('static', path='images/entries/home/logofooter.png') }}"
+                                 data-src="{{ request.url_for('static', path='images/entries/home/logofooter.png') }}"
+                                 loading="lazy">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="copyright" style="position: relative; z-index: 1;">
+            <div class="container">&copy; <span id="copyright-year"></span>&nbsp; Powered by FastAPI</div>
+        </section>
+        <section class="map" style="position: relative; z-index: 1;">
+            <div id="yandex-map"></div>
+        </section>
+    </footer>
+{% endblock %}
+
+{% block extra_js %}
+{{ legacy_scripts('home') }}
+
+{# --- Стили карты: полная ширина --- #}
+<style>
+    #yandex-map {
+        width: 100%;
+        height: 450px;
+    }
+    @media (max-width: 767px) {
+        #yandex-map {
+            height: 320px;
+        }
+    }
+</style>
+
+{# --- Yandex Maps API 2.1 --- #}
+<script src="https://api-maps.yandex.ru/2.1/?apikey={{ yandex_maps_api_key }}&lang=ru_RU"></script>
+<script>
+ymaps.ready(function () {
+    var map = new ymaps.Map('yandex-map', {
+        center: [55.775893, 38.450595],
+        zoom: 16,
+        controls: ['zoomControl', 'geolocationControl', 'typeSelector']
+    });
+
+    map.geoObjects.add(new ymaps.Placemark(
+        [55.775893, 38.450595],
+        {
+            balloonContentHeader: 'ООО «ВеКо»',
+            balloonContentBody: 'Приём электронного лома<br>ул. Пионерская, 22, Электросталь',
+            hintContent: 'ООО «ВеКо»'
+        },
+        {
+            preset: 'islands#blueIndustryCircleIcon'
+        }
+    ));
+
+    // Отключаем зум скроллом — чтобы не мешал прокрутке страницы
+    map.behaviors.disable('scrollZoom');
+});
+</script>
+{% endblock %}
+
+{# --- SEO: JSON-LD LocalBusiness — структурированные данные для главной страницы ---
+   Помогают Google и Яндексу показывать расширенный сниппет в поиске:
+   адрес, телефон, график работы, тип бизнеса.
+   Подробнее: https://schema.org/LocalBusiness
+#}
+{% block json_ld %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "ВеКо — приём электронного лома",
+    "description": "{{ seo.description if seo else 'Приём электронного лома по выгодным ценам' }}",
+    "url": "{{ site_url }}/",
+    "telephone": ["+7-499-499-84-74", "+7-917-599-52-22", "+7-926-509-02-63"],
+    "email": "vekomet@gmail.com",
+    "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "ул. Пионерская, 22",
+        "addressLocality": "Электросталь",
+        "addressRegion": "Московская область",
+        "addressCountry": "RU"
+    },
+    "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 55.775893,
+        "longitude": 38.450595
+    },
+    "openingHoursSpecification": [
+        {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+            "opens": "08:00",
+            "closes": "18:00"
+        },
+        {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": "Saturday",
+            "opens": "08:00",
+            "closes": "12:00"
+        }
+    ]
+}
+</script>
+{% endblock %}

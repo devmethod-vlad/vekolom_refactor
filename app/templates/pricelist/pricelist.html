@@ -1,0 +1,409 @@
+{% extends 'base.html' %}
+{#
+  Jinja2 pricelist template — адаптировано из pricelist/dev/pricelist.html (Django).
+
+  Ключевые отличия от Django-шаблона:
+  1. {% load static %} — убран (не нужен в Jinja2).
+  2. {% static '...' %} → {{ request.url_for('static', path='...') }}
+  3. {% if position.category == category %} → {% if position.category_id == category.id %}
+  4. {{ foto.foto.url }} → /media/{{ foto.foto }}
+     (Django ImageField.url возвращал полный URL, теперь foto — строка-путь)
+  5. {{ foto.avatarfoto.url }} → /media/{{ foto.foto }}
+     (ImageSpecField avatarfoto генерировался на лету; пока используем оригинал)
+  6. {% if foto.position == position %} → {% if foto.position_id == position.id %}
+  7. Block names изменены для совместимости с base.html:
+     Header → header, Content → content, Footer → footer,
+     ExstraCSS → extra_css, ExtraJS → extra_js, LinkAmp → link_amp
+
+  SEO-изменения:
+  - Добавлен canonical URL.
+  - Добавлены Open Graph мета-теги.
+  - Исправлен &nbsp (без точки с запятой) → &nbsp; в ссылке скачивания.
+  - Исправлена семантика: <a><h4> → <h4><a> (заголовок содержит ссылку, не наоборот).
+  - Исправлен дубликат id="price_foto" → заменён на class (id должен быть уникален).
+  - Добавлен loading="lazy" к изображениям.
+  - Добавлен height к WhatsApp-иконкам.
+  - Исправлена семантика <b><p> → <p><strong> в блоке требований.
+  - Добавлен src + data-src к footer-логотипу.
+
+  Контекст роутера:
+    debug_flag, date, fotos, seo, categories, positions
+#}
+
+{% block link_amp %}
+    <link rel="amphtml" href="{{ site_url }}/amp/pricelist/">
+{% endblock %}
+
+{# --- SEO: canonical URL для страницы прайс-листа --- #}
+{% block canonical %}
+    <link rel="canonical" href="{{ site_url }}/pricelist/">
+{% endblock %}
+
+{# --- SEO: Open Graph мета-теги --- #}
+{% block og_meta %}
+    {% for s in seo %}
+    <meta property="og:title" content="{{ s.title }}">
+    <meta property="og:description" content="{{ s.description }}">
+    {% endfor %}
+    <meta property="og:url" content="{{ site_url }}/pricelist/">
+    <meta property="og:image" content="{{ og_image_default }}">
+{% endblock %}
+
+{% block extra_css %}
+    <link href="{{ request.url_for('static', path='vendor/fancybox/fancybox-min.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block header %}
+    <header>
+        <div id="stuck_container" class="stuck_container">
+            <div class="wr">
+                <div class="custom-navbar-header">
+                    <div class="brand-wrapper">
+                       <div class="brand-header-wr">
+                         <a href="/">
+                             <h1 class="custom-brand">ВЕКО</h1>
+                         </a>
+                       </div>
+                      <div class="logo-header-wr">
+                          <img alt="Приём электронного лома"
+                               class="custom-brand-responsive"
+                               width="150" height="50"
+                               src="{{ request.url_for('static', path='images/common/logo.png') }}">
+                      </div>
+                    </div>
+                    <div class="slogan-wrapper">
+                        <p class="navbar-brand-slogan">ПРИЕМ <br>ЭЛЕКТРОННОГО ЛОМА</p>
+                    </div>
+                    <div class="phone-wrapper">
+                        <div class="phones">
+                           <p class="navbar-phone-item"><a href="tel:+74994998474">8(499)499-84-74</a></p>
+                           <p class="navbar-phone-item"><a href="tel:+79175995222">8(917)599-52-22</a></p>
+                           <p class="navbar-phone-item">
+                               <a href="https://wa.me/79265090263">
+                                   8(926)509-02-63&nbsp;&nbsp;<img width="20" height="20" alt="WhatsApp"
+                                       src="{{ request.url_for('static', path='images/common/whatsapp_150.png') }}">
+                               </a>
+                           </p>
+                        </div>
+                    </div>
+                </div>
+
+                <nav class="customnavbar custom-navbar-default custom-navbar-static-top">
+                    <div class="custom-navbar-nav custom-sf-menu custom-navbar-right">
+                        <div class="nav-item">
+                                <div class="item"><a href="/">Главная</a></div>
+                        </div>
+                        <div class="nav-item nav-item-active">
+                            <div class="item"><a href="/pricelist/">Прайс-лист</a></div>
+                        </div>
+                        <div class="nav-item">
+                            <div class="item"><a href="/contacts/">Контакты</a></div>
+                        </div>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </header>
+{% endblock %}
+
+{% block content %}
+    <section class="well2 bg-lighter">
+            <div class="container">
+                <h2 class="text-center">Прайс-лист</h2>
+                <div class="row" style="margin-top: 40px; margin-bottom: 40px;">
+                    <picture>
+                        <source media="(max-width: 576px)" srcset="{{ request.url_for('static', path='banners/may-2025-576.jpg') }}">
+                        <source media="(max-width: 768px)" srcset="{{ request.url_for('static', path='banners/may-2025-768.jpg') }}">
+                        <img alt="Майские праздники" class="img-responsive" src="{{ request.url_for('static', path='banners/may-2025.jpg') }}">
+                   </picture>
+                </div>
+                <div class="row">
+                    <div class="col-md-7 col-sm-7 col-xs-12">
+                        {# ИСПРАВЛЕНО: семантика <a><h4> → <h4><a> (заголовок оборачивает ссылку).
+                           Исправлен &nbsp → &nbsp; (отсутствовала точка с запятой).
+                           Добавлен alt к иконке Excel. #}
+                        <h4><a href="/media/media/exel/PriceVeko.xlsx" download>Скачать&nbsp;<img style="width: 36px; height: 40px;" alt="Скачать прайс-лист Excel" src="{{ request.url_for('static', path='images/common/excel-icon.png') }}"></a></h4>
+                    </div>
+                    <div class="col-md-2 col-sm-2 col-xs-12">
+                        {% for d in date %}
+                        <h5>{{ d.date }}</h5>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-12 col-lg-12 col-sm-12 col-xs-12">
+                        <div class="panel panel-primary">
+                            <div class="price-table-header-wr">
+                              <div class="price-table-header-title price-header-item">НАИМЕНОВАНИЕ</div>
+                              <div class="price-table-header-foto price-header-item">ФОТО</div>
+                              <div class="price-table-header-pricenal price-header-item">БЕЗНАЛИЧНЫЙ РАСЧЕТ (НА КАРТУ ФИЗ.ЛИЦА)</div>
+                              <div class="price-table-header-pricenal price-header-item">БЕЗНАЛИЧНЫЙ РАСЧЕТ (ЛИЦЕНЗИЯ ЮР.ЛИЦА)</div>
+                            </div>
+                            {% for category in categories %}
+                                {% for position in positions %}
+                                    {#
+                                      Django: {% if position.category == category %}
+                                      Jinja2: сравниваем по category_id, т.к. объекты разные
+                                    #}
+                                    {% if position.category_id == category.id %}
+                                     {% if position.id == 40 %}
+                                     {# --- Специальный блок для позиции id=40 (электронные платы) --- #}
+                                     <div class="price-table-item-wr">
+                                        <div class="price-table-title price-table-item">
+                                            <div class="positionname">{{ position.name }}</div>{% if position.description %}<br><div class="mytext">{{ position.description|safe }}</div>{% endif %}<br>{% if position.rules %}<div class="mytext">{{ position.rules|safe }}</div>{% endif %}
+                                        </div>
+                                        {# ИСПРАВЛЕНО: id="price_foto" → class="price-foto-cell"
+                                           id должен быть уникален на странице; здесь используется
+                                           внутри цикла, поэтому заменён на class. #}
+                                        <div class="price-table-foto price-table-item price-foto-cell">
+                                            {#
+                                              Django: {% if foto.position == position %} ... {{ foto.foto.url }} ... {{ foto.avatarfoto.url }}
+                                              Jinja2: сравниваем по position_id; foto.foto — строка-путь; avatarfoto пока заменяем оригиналом
+                                            #}
+                                            {% for foto in fotos %}{% if foto.position_id == position.id %}<a class="fancybox-thumb" rel="{{ position.name }}" href="/media/{{ foto.foto }}" {% if foto.text %} title="{{ foto.text }}------{{ position.price }}" {% else %} title="{{ position.name }}------{{ position.price }}"{% endif %}><img alt="{{ position.name }}" class="thumbnail img-responsive price-table-img" src="/media/{{ foto.foto }}" loading="lazy"></a>{% endif %}{% endfor %}
+                                        </div>
+                                        <div class="price-table-pricenal price-table-item">
+                                            {% if position.price_2 %}
+                                             <span style="text-align: center" class="price-table-span">БЕЗНАЛИЧНЫЙ РАСЧЕТ (НА КАРТУ ФИЗ.ЛИЦА)&nbsp;&nbsp;</span>
+                                                <div class="positionprice-flex">
+                                                 <div class="price_flex_title flex_title_border">
+                                                     {{ position.price_title }}
+                                                 </div>
+                                                 <div class="price_flex_value flex_price_border">
+                                                     {{ position.price }}
+                                                 </div>
+                                            </div>
+                                             <div class="positionprice-flex">
+                                                 <div class="price_flex_title flex_title_border">
+                                                     {{ position.price2_title }}
+                                                 </div>
+                                                 <div class="price_flex_value flex_price_border">
+                                                     {{ position.price_2 }}
+                                                 </div>
+                                            </div>
+                                                {% if position.price_3 %}
+                                                    <div class="positionprice-flex">
+                                                       <div class="price_flex_title flex_third_title_border">
+                                                            {{ position.price3_title }}
+                                                       </div>
+                                                     <div class="price_flex_value">
+                                                            {{ position.price_3 }}
+                                                     </div>
+                                                    </div>
+                                                {% endif %}
+                                            {% else %}
+                                            <div class="positionprice">
+                                                <span class="price-table-span">БЕЗНАЛИЧНЫЙ РАСЧЕТ (НА КАРТУ ФИЗ.ЛИЦА)&nbsp;&nbsp;</span>
+                                                {{ position.price }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                         <div class="price-table-pricecard price-table-item">
+                                            {% if position.price_card and position.price_card != '' and position.price2_card and position.price2_card != '' %}
+                                             <span style="text-align: center" class="price-table-span">БЕЗНАЛИЧНЫЙ РАСЧЕТ (ЛИЦЕНЗИЯ ЮР.ЛИЦА)&nbsp;&nbsp;</span>
+                                                <div class="positionprice-flex">
+                                                 <div class="price_flex_title flex_title_border">
+                                                     {{ position.price_card_title }}
+                                                 </div>
+                                                 <div class="price_flex_value flex_price_border">
+                                                     {{ position.price_card }}
+                                                 </div>
+                                            </div>
+                                             <div class="positionprice-flex">
+                                                 <div class="price_flex_title flex_title_border">
+                                                     {{ position.price2_card_title }}
+                                                 </div>
+                                                 <div class="price_flex_value flex_price_border">
+                                                     {{ position.price2_card }}
+                                                 </div>
+                                            </div>
+                                            {% else %}
+                                                <div class="positionprice">
+                                                    <span class="price-table-span">БЕЗНАЛИЧНЫЙ РАСЧЕТ (ЛИЦЕНЗИЯ ЮР.ЛИЦА)&nbsp;&nbsp;</span>
+                                                    {{ position.price_card }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                        <hr class="myhr">
+                                     <div class="price-table-item-wr">
+                                        <div class="plate_rules_text_wr">
+                                            <p>ТРЕБОВАНИЯ К ЭЛЕКТРОННЫМ ПЛАТАМ</p>
+                                            <br>
+                                            {# ИСПРАВЛЕНО: <b><p> → <p><strong> — более семантичная разметка.
+                                               <b> вокруг <p> невалиден (inline не может оборачивать block). #}
+                                            <p><strong>Материал должен быть абсолютно почищен и рассортирован по позициям!</strong></p>
+                                            <p><strong>Убирать:</strong></p>
+                                            <p><strong>1. Металлические рамки, части и блоки.</strong></p>
+                                            <p><strong>2. Алюминиевые радиаторы и стойки</strong></p>
+                                            <p><strong>3. Медные катушки более 2 см</strong></p>
+                                            <p><strong>4. Конденсаторы К50 Алюминиевые и пластмассовые более 2 см</strong></p>
+                                            <p><strong>5. Весь пластик и провода</strong></p>
+                                            <p><strong>6. По дорогим позициям все платы должны быть абсолютно целые и не грабленые.</strong></p>
+                                        </div>
+                                     </div>
+                                     <hr class="myhr">
+                                    {% else %}
+                                    {# --- Обычный блок позиции --- #}
+                                    <div class="price-table-item-wr">
+                                        <div class="price-table-title price-table-item">
+                                            <div class="positionname">{{ position.name }}</div>{% if position.description %}<br><div class="mytext">{{ position.description|safe }}</div>{% endif %}<br>{% if position.rules %}<div class="mytext">{{ position.rules|safe }}</div>{% endif %}
+                                        </div>
+                                        {# ИСПРАВЛЕНО: id="price_foto" → class="price-foto-cell" (дубликат id) #}
+                                        <div class="price-table-foto price-table-item price-foto-cell">
+                                             {% for foto in fotos %}{% if foto.position_id == position.id %}<a class="fancybox-thumb" rel="{{ position.name }}" href="/media/{{ foto.foto }}" {% if foto.text %} title="{{ foto.text }}------{{ position.price }}" {% else %} title="{{ position.name }}------{{ position.price }}"{% endif %}><img alt="{{ position.name }}" class="thumbnail img-responsive price-table-img" src="/media/{{ foto.foto }}" loading="lazy"></a>{% endif %}{% endfor %}
+                                        </div>
+                                        <div class="price-table-pricenal price-table-item">
+                                            {% if position.price_2 %}
+                                             <span style="text-align: center" class="price-table-span">БЕЗНАЛИЧНЫЙ РАСЧЕТ (НА КАРТУ ФИЗ.ЛИЦА)&nbsp;&nbsp;</span>
+                                                <div class="positionprice-flex">
+                                                 <div class="price_flex_title flex_title_border">
+                                                     {{ position.price_title }}
+                                                 </div>
+                                                 <div class="price_flex_value flex_price_border">
+                                                     {{ position.price }}
+                                                 </div>
+                                            </div>
+                                             <div class="positionprice-flex">
+                                                 <div class="price_flex_title flex_title_border">
+                                                     {{ position.price2_title }}
+                                                 </div>
+                                                 <div class="price_flex_value flex_price_border">
+                                                     {{ position.price_2 }}
+                                                 </div>
+                                            </div>
+                                                {% if position.price_3 %}
+                                                    <div class="positionprice-flex">
+                                                       <div class="price_flex_title flex_third_title_border">
+                                                            {{ position.price3_title }}
+                                                       </div>
+                                                     <div class="price_flex_value">
+                                                            {{ position.price_3 }}
+                                                     </div>
+                                                    </div>
+                                                {% endif %}
+                                            {% else %}
+                                            <div class="positionprice">
+                                                <span class="price-table-span">БЕЗНАЛИЧНЫЙ РАСЧЕТ (НА КАРТУ ФИЗ.ЛИЦА)&nbsp;&nbsp;</span>
+                                                {{ position.price }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="price-table-pricecard price-table-item">
+                                            {% if position.price_card and position.price_card != '' and position.price2_card and position.price2_card != '' %}
+                                             <span style="text-align: center" class="price-table-span">БЕЗНАЛИЧНЫЙ РАСЧЕТ (ЛИЦЕНЗИЯ ЮР.ЛИЦА)&nbsp;&nbsp;</span>
+                                                <div class="positionprice-flex">
+                                                 <div class="price_flex_title flex_title_border">
+                                                     {{ position.price_card_title }}
+                                                 </div>
+                                                 <div class="price_flex_value flex_price_border">
+                                                     {{ position.price_card }}
+                                                 </div>
+                                            </div>
+                                             <div class="positionprice-flex">
+                                                 <div class="price_flex_title flex_title_border">
+                                                     {{ position.price2_card_title }}
+                                                 </div>
+                                                 <div class="price_flex_value flex_price_border">
+                                                     {{ position.price2_card }}
+                                                 </div>
+                                            </div>
+                                            {% else %}
+                                                <div class="positionprice">
+                                                    <span class="price-table-span">БЕЗНАЛИЧНЫЙ РАСЧЕТ (ЛИЦЕНЗИЯ ЮР.ЛИЦА)&nbsp;&nbsp;</span>
+                                                    {{ position.price_card }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                        <hr class="myhr">
+                                    {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-10 col-sm-10 col-xs-12">
+                        {# ИСПРАВЛЕНО: <a><h4> → <h4><a> (семантика) #}
+                        <h4><a href="/contacts/">Оставить сообщение&nbsp;<i class="fa fa-envelope-o"></i></a></h4>
+                    </div>
+                </div>
+            </div>
+    </section>
+{% endblock %}
+
+{% block footer %}
+    <footer style="position: relative; background: #3a393a; color: #fff; overflow: hidden;">
+        <picture>
+            <source srcset="{{ request.url_for('static', path='images/common/footer_bg.webp') }}" type="image/webp">
+            <img src="{{ request.url_for('static', path='images/common/footer_bg.jpg') }}"
+                 style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:0; pointer-events:none;"
+                 alt=""
+                 loading="lazy">
+        </picture>
+        <section class="center767" style="position: relative; z-index: 1;">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-4 col-sm-6 col-xs-12">
+                        <h5>Звоните или пишите нам</h5>
+                        <p class="pcustom pcustom-footer"><a class="a-pcustom-footer" href="tel:+74994998474">8(499)499-84-74</a></p>
+                        <p class="pcustom pcustom-footer"><a class="a-pcustom-footer" href="tel:+79175995222">8(917)599-52-22</a></p>
+                        <p class="pcustom pcustom-footer">
+                            <a class="a-pcustom-footer" href="https://wa.me/79265090263">
+                                8(926)509-02-63&nbsp;&nbsp;<img width="20" height="20" alt="WhatsApp"
+                                    src="{{ request.url_for('static', path='images/common/whatsapp_150.png') }}">
+                            </a>
+                        </p>
+                        <p class="pcustom pcustom-footer"><a class="a-pcustom-footer" href="mailto:vekomet@gmail.com">vekomet@gmail.com</a></p>
+                        <p class="pcustom"><a href="/contacts/">Оставить сообщение</a></p>
+                    </div>
+                    <div class="col-md-offset-1 col-md-3 col-sm-6 col-sm-offset-0 col-xs-12">
+                        <h5>Мы находимся по адресу:</h5>
+                        <p class="pcustom">Московская область</p>
+                        <p class="pcustom">г.Электросталь. ул.Пионерская 22</p>
+                        <p class="pcustom">График работы:</p>
+                        <p class="pcustom">пн-пт: 8.00-18.00 | cб: 8.00-12.00</p>
+                        <p class="pcustom">обед: 13.00-14.00</p>
+                        <p class="pcustom">вс: выходной</p>
+                    </div>
+                    <div class="col-md-4 col-sm-4 col-xs-12">
+                        <div class="logo-footer-wrapper">
+                            {# ИСПРАВЛЕНО: добавлен src рядом с data-src для краулеров #}
+                            <img alt="Электронный лом" class="img-responsive"
+                                 src="{{ request.url_for('static', path='images/common/logofooter.png') }}"
+                                 data-src="{{ request.url_for('static', path='images/common/logofooter.png') }}"
+                                 loading="lazy">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="copyright" style="position: relative; z-index: 1;">
+            <div class="container">&copy; <span id="copyright-year"></span>&nbsp; Powered by FastAPI</div>
+        </section>
+    </footer>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{{ request.url_for('static', path='vendor/fancybox/fancybox-min.js') }}"></script>
+    <script>
+    $(document).ready(function() {
+	$(".fancybox-thumb").fancybox({
+        padding : 0,
+		prevEffect	: 'none',
+		nextEffect	: 'none',
+		helpers	: {
+			title	: {
+				type: 'outside'
+			},
+			thumbs	: {
+				width	: 100,
+				height	: 100
+			}
+		}
+	});
+});
+    </script>
+{% endblock %}

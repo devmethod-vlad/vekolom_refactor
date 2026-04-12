@@ -1,0 +1,244 @@
+{% extends 'amp/base.html' %}
+{#
+  AMP-версия страницы прайс-листа — визуально идентична легаси AMP-шаблону
+  и обычной версии pricelist/pricelist.html.
+
+  Структура:
+    - Заголовок «Прайс-лист»
+    - Ссылка «Скачать» + дата актуальности
+    - Таблица позиций по категориям (price-table-item-wr / price-table-title /
+      price-table-foto / price-table-pricenal / price-table-pricecard)
+    - Специальный блок требований к электронным платам (для позиции id=40)
+    - Ссылка «Оставить сообщение»
+
+  Лайтбокс фотографий: атрибут lightbox="..." у amp-img активируется
+  компонентом amp-lightbox-gallery (общий лайтбокс для всех изображений
+  на странице, с навигацией и подписями). Это AMP-аналог fancybox.
+
+  Контекст роутера:
+    seo, date, fotos, categories, positions
+#}
+
+{# --- AMP-компоненты, нужные только на этой странице --- #}
+{% block amp_head_scripts %}
+    <script async custom-element="amp-lightbox-gallery" src="https://cdn.ampproject.org/v0/amp-lightbox-gallery-0.1.js"></script>
+{% endblock %}
+
+{# --- SEO: title из PricelistSeo (queryset, итерируем) --- #}
+{% block meta %}
+    {% for s in seo %}
+    <title>{{ s.title }}</title>
+    <meta name="keywords" content="{{ s.keywords }}">
+    <meta name="description" content="{{ s.description }}">
+    {% endfor %}
+{% endblock %}
+
+{# --- SEO: canonical → основная (не-AMP) версия --- #}
+{% block canonical %}
+    <link rel="canonical" href="{{ site_url }}/pricelist/">
+{% endblock %}
+
+{# --- SEO: Open Graph мета-теги --- #}
+{% block og_meta %}
+    {% for s in seo %}
+    <meta property="og:title" content="{{ s.title }}">
+    <meta property="og:description" content="{{ s.description }}">
+    {% endfor %}
+    <meta property="og:url" content="{{ site_url }}/pricelist/">
+    <meta property="og:image" content="{{ og_image_default }}">
+{% endblock %}
+
+{# --- Активный пункт меню --- #}
+{% block nav_active %}pricelist{% endblock %}
+
+{# --- Дополнительные стили страницы прайс-листа --- #}
+{% block amp_extra_css %}
+    .custom-well2 { padding-top: 100px; }
+{% endblock %}
+
+{% block content %}
+<section class="well2 custom-well2 bg-lighter">
+    <div class="container">
+        <h2 class="text-center">Прайс-лист</h2>
+
+        {# --- Скачать прайс + дата актуальности --- #}
+        <div class="row">
+            <div class="col-md-7 col-sm-7 col-xs-12">
+                <a href="/media/media/exel/PriceVeko.xlsx" download>
+                    <h4>Скачать&nbsp;<amp-img layout="fixed" width="36" height="40"
+                        src="{{ request.url_for('static', path='images/common/excel-icon.png') }}"
+                        alt="Excel"></amp-img></h4>
+                </a>
+            </div>
+            <div class="col-md-2 col-sm-2 col-xs-12">
+                {% for d in date %}
+                <h5>{{ d.date }}</h5>
+                {% endfor %}
+            </div>
+        </div>
+
+        {# ------------------------------------------------------------ #}
+        {# Таблица позиций по категориям                                 #}
+        {# ------------------------------------------------------------ #}
+        <div class="row">
+            <div class="col-md-12 col-lg-12 col-sm-12 col-xs-12">
+                <div class="panel panel-primary">
+                    <div class="price-table-header-wr">
+                        <div class="price-table-header-title price-header-item">НАИМЕНОВАНИЕ</div>
+                        <div class="price-table-header-foto price-header-item">ФОТО</div>
+                        <div class="price-table-header-pricenal price-header-item">БЕЗНАЛИЧНЫЙ РАСЧЕТ (НА КАРТУ ФИЗ.ЛИЦА)</div>
+                        <div class="price-table-header-pricenal price-header-item">БЕЗНАЛИЧНЫЙ РАСЧЕТ (ЛИЦЕНЗИЯ ЮР.ЛИЦА)</div>
+                    </div>
+
+                    {% for category in categories %}
+                        {% for position in positions %}
+                            {% if position.category_id == category.id %}
+
+                            {% if position.id == 40 %}
+                            {# === Специальный блок: позиция id=40 (электронные платы) === #}
+                            <div class="price-table-item-wr">
+                                <div class="price-table-title price-table-item">
+                                    <div class="positionname">{{ position.name }}</div>
+                                    {% if position.description %}<br><div class="mytext">{{ position.description | safe }}</div>{% endif %}
+                                    <br>
+                                    {% if position.rules %}<div class="mytext">{{ position.rules | safe }}</div>{% endif %}
+                                </div>
+                                <div class="price-table-foto price-table-item">
+                                    {% for foto in fotos %}{% if foto.position_id == position.id %}<amp-img lightbox="{{ position.name }}" width="150" height="150" aria-describedby="{{ position.name }}" class="thumbnail" src="/media/{{ foto.foto }}" alt="{{ position.name }}"></amp-img>{% endif %}{% endfor %}
+                                </div>
+                                <div class="price-table-pricenal price-table-item">
+                                    {% if position.price_2 %}
+                                        <span class="price-table-span" style="text-align: center">БЕЗНАЛИЧНЫЙ РАСЧЕТ (НА КАРТУ ФИЗ.ЛИЦА)&nbsp;&nbsp;</span>
+                                        <div class="positionprice-flex">
+                                            <div class="price_flex_title flex_title_border">{{ position.price_title }}</div>
+                                            <div class="price_flex_value flex_price_border">{{ position.price }}</div>
+                                        </div>
+                                        <div class="positionprice-flex">
+                                            <div class="price_flex_title flex_title_border">{{ position.price2_title }}</div>
+                                            <div class="price_flex_value flex_price_border">{{ position.price_2 }}</div>
+                                        </div>
+                                        {% if position.price_3 %}
+                                        <div class="positionprice-flex">
+                                            <div class="price_flex_title flex_third_title_border">{{ position.price3_title }}</div>
+                                            <div class="price_flex_value">{{ position.price_3 }}</div>
+                                        </div>
+                                        {% endif %}
+                                    {% else %}
+                                        <div class="positionprice">
+                                            <span class="price-table-span">БЕЗНАЛИЧНЫЙ РАСЧЕТ (НА КАРТУ ФИЗ.ЛИЦА)&nbsp;&nbsp;</span>
+                                            {{ position.price }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="price-table-pricecard price-table-item">
+                                    {% if position.price_card and position.price_card != '' and position.price2_card and position.price2_card != '' %}
+                                        <span class="price-table-span" style="text-align: center">БЕЗНАЛИЧНЫЙ РАСЧЕТ (ЛИЦЕНЗИЯ ЮР.ЛИЦА)&nbsp;&nbsp;</span>
+                                        <div class="positionprice-flex">
+                                            <div class="price_flex_title flex_title_border">{{ position.price_card_title }}</div>
+                                            <div class="price_flex_value flex_price_border">{{ position.price_card }}</div>
+                                        </div>
+                                        <div class="positionprice-flex">
+                                            <div class="price_flex_title flex_title_border">{{ position.price2_card_title }}</div>
+                                            <div class="price_flex_value flex_price_border">{{ position.price2_card }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="positionprice">
+                                            <span class="price-table-span">БЕЗНАЛИЧНЫЙ РАСЧЕТ (ЛИЦЕНЗИЯ ЮР.ЛИЦА)&nbsp;&nbsp;</span>
+                                            {{ position.price_card }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <hr class="myhr">
+
+                            {# --- Требования к электронным платам --- #}
+                            <div class="price-table-item-wr">
+                                <div class="plate_rules_text_wr">
+                                    <p>ТРЕБОВАНИЯ К ЭЛЕКТРОННЫМ ПЛАТАМ</p>
+                                    <br>
+                                    <p><strong>Материал должен быть абсолютно почищен и рассортирован по позициям!</strong></p>
+                                    <p><strong>Убирать:</strong></p>
+                                    <p><strong>1. Металлические рамки, части и блоки.</strong></p>
+                                    <p><strong>2. Алюминиевые радиаторы и стойки</strong></p>
+                                    <p><strong>3. Медные катушки более 2 см</strong></p>
+                                    <p><strong>4. Конденсаторы К50 Алюминиевые и пластмассовые более 2 см</strong></p>
+                                    <p><strong>5. Весь пластик и провода</strong></p>
+                                    <p><strong>6. По дорогим позициям все платы должны быть абсолютно целые и не грабленые.</strong></p>
+                                </div>
+                            </div>
+                            <hr class="myhr">
+
+                            {% else %}
+                            {# === Обычный блок позиции === #}
+                            <div class="price-table-item-wr">
+                                <div class="price-table-title price-table-item">
+                                    <div class="positionname">{{ position.name }}</div>
+                                    {% if position.description %}<br><div class="mytext">{{ position.description | safe }}</div>{% endif %}
+                                    <br>
+                                    {% if position.rules %}<div class="mytext">{{ position.rules | safe }}</div>{% endif %}
+                                </div>
+                                <div class="price-table-foto price-table-item">
+                                    {% for foto in fotos %}{% if foto.position_id == position.id %}<amp-img lightbox="{{ position.name }}" width="150" height="150" aria-describedby="{{ position.name }}" class="thumbnail" src="/media/{{ foto.foto }}" alt="{{ position.name }}"></amp-img>{% endif %}{% endfor %}
+                                </div>
+                                <div class="price-table-pricenal price-table-item">
+                                    {% if position.price_2 %}
+                                        <span class="price-table-span" style="text-align: center">БЕЗНАЛИЧНЫЙ РАСЧЕТ (НА КАРТУ ФИЗ.ЛИЦА)&nbsp;&nbsp;</span>
+                                        <div class="positionprice-flex">
+                                            <div class="price_flex_title flex_title_border">{{ position.price_title }}</div>
+                                            <div class="price_flex_value flex_price_border">{{ position.price }}</div>
+                                        </div>
+                                        <div class="positionprice-flex">
+                                            <div class="price_flex_title flex_title_border">{{ position.price2_title }}</div>
+                                            <div class="price_flex_value flex_price_border">{{ position.price_2 }}</div>
+                                        </div>
+                                        {% if position.price_3 %}
+                                        <div class="positionprice-flex">
+                                            <div class="price_flex_title flex_third_title_border">{{ position.price3_title }}</div>
+                                            <div class="price_flex_value">{{ position.price_3 }}</div>
+                                        </div>
+                                        {% endif %}
+                                    {% else %}
+                                        <div class="positionprice">
+                                            <span class="price-table-span">БЕЗНАЛИЧНЫЙ РАСЧЕТ (НА КАРТУ ФИЗ.ЛИЦА)&nbsp;&nbsp;</span>
+                                            {{ position.price }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="price-table-pricecard price-table-item">
+                                    {% if position.price_card and position.price_card != '' and position.price2_card and position.price2_card != '' %}
+                                        <span class="price-table-span" style="text-align: center">БЕЗНАЛИЧНЫЙ РАСЧЕТ (ЛИЦЕНЗИЯ ЮР.ЛИЦА)&nbsp;&nbsp;</span>
+                                        <div class="positionprice-flex">
+                                            <div class="price_flex_title flex_title_border">{{ position.price_card_title }}</div>
+                                            <div class="price_flex_value flex_price_border">{{ position.price_card }}</div>
+                                        </div>
+                                        <div class="positionprice-flex">
+                                            <div class="price_flex_title flex_title_border">{{ position.price2_card_title }}</div>
+                                            <div class="price_flex_value flex_price_border">{{ position.price2_card }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="positionprice">
+                                            <span class="price-table-span">БЕЗНАЛИЧНЫЙ РАСЧЕТ (ЛИЦЕНЗИЯ ЮР.ЛИЦА)&nbsp;&nbsp;</span>
+                                            {{ position.price_card }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <hr class="myhr">
+                            {% endif %}
+
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {# --- Ссылка на форму обратной связи --- #}
+        <div class="row">
+            <div class="col-md-10 col-md-offset-1 col-sm-10 col-sm-offset-1 col-xs-12">
+                <a href="/amp/contacts/"><h4>Оставить сообщение</h4></a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

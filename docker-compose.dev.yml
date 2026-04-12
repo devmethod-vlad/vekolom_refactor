@@ -3,10 +3,47 @@ services:
     build:
       context: .
       target: dev
-    command: "uv run --no-sync uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT} --reload"
+    command: >
+      bash -c "
+        uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT} --reload
+      "
+    ports:
+      - ${APP_PORT}:${APP_PORT}
     networks:
       - default
       - vekolom-service-network
+
+  celery_vekolom:
+    build:
+      context: .
+      target: dev
+    networks:
+      - default
+      - vekolom-service-network
+
+  frontend_vekolom:
+    build:
+      context: ./frontend
+    container_name: frontend_vekolom
+    command: sh -c "npm run dev -- --host 0.0.0.0 --port 5173"
+    env_file:
+      - .env
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      FRONTEND_HMR_HOST: "localhost"
+      FRONTEND_HMR_PORT: "5173"
+      FRONTEND_HMR_PROTOCOL: "ws"
+    volumes:
+      - ./frontend:/frontend
+      - frontend_node_modules:/frontend/node_modules
+    ports:
+      - "5173:5173"
+    networks:
+      - default
+      - vekolom-service-network
+
+volumes:
+  frontend_node_modules:
 
 networks:
   default:

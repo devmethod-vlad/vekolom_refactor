@@ -3,8 +3,21 @@ services:
     container_name: vekolom
     env_file:
       - .env
-    ports:
-      - ${APP_PORT}:${APP_PORT}
+    expose:
+      - ${APP_PORT}
     volumes:
       - ./:/vekolom
+    restart: unless-stopped
+
+  celery_vekolom:
+    container_name: celery_vekolom
+    command: >
+      celery -A app.infrastructure.celery.worker worker
+      --loglevel=info
+      --concurrency=2
+    volumes:
+      - ./:/vekolom
+    environment:
+      - CELERY_BROKER_URL=redis://redis-vekolom:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-vekolom:6379/0
     restart: unless-stopped

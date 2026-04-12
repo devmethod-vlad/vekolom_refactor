@@ -15,11 +15,13 @@ from app.infrastructure.db.base import Base  # noqa: E402
 
 # Import ORM models so they are registered in Base.metadata
 import app.modules.home.infrastructure.sa_models  # noqa: F401,E402
+import app.modules.pricelist.infrastructure.sa_models  # noqa: F401,E402
+import app.modules.contacts.infrastructure.sa_models  # noqa: F401,E402
 
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

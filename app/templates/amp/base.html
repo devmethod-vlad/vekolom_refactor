@@ -1,0 +1,783 @@
+{#
+  Jinja2 AMP base template — базовый шаблон AMP-страниц.
+
+  Визуально соответствует обычным страницам сайта: тот же шрифт (Roboto),
+  цветовая палитра (#23beed акцент, #3a393a тёмный, #818285 серый текст),
+  Bootstrap-подобная сеточная разметка, идентичная структура header/footer.
+  Стили перенесены из легаси AMP-шаблона (Django) и адаптированы под AMP.
+
+  Требования AMP:
+    1. <!doctype html> и <html ⚡ lang="ru">
+    2. AMP boilerplate CSS (нельзя менять/удалять).
+    3. Только один <style amp-custom> для всех стилей (макс. 75 КБ).
+    4. Запрещён произвольный JavaScript — только AMP-компоненты.
+    5. Все изображения через <amp-img> с явными width/height.
+    6. <link rel="canonical"> указывает на основную (не-AMP) версию.
+
+  Подключение ассетов:
+    - Статика  — request.url_for('static', path='...')   (как в обычных шаблонах)
+    - Медиа    — /media/{{ ... }}                         (как в обычных шаблонах)
+    - SEO URLs — site_url из глобалов (для canonical/og)
+
+  Переменные контекста (общие):
+    seo — объект Seo | Sequence[Seo] | None
+
+  Глобальные переменные (зарегистрированы в TemplatesProvider):
+    site_url         — каноничный домен (https://vekolom.ru)
+    og_image_default — абсолютный URL к OG-изображению по умолчанию
+
+  Блоки для переопределения в дочерних шаблонах:
+    amp_head_scripts — дополнительные <script> для AMP-компонентов
+    canonical        — <link rel="canonical">
+    og_meta          — Open Graph мета-теги
+    amp_extra_css    — дополнительные стили страницы внутри <style amp-custom>
+    nav_active       — CSS-класс активного пункта меню (home/pricelist/contacts)
+    content          — основной контент страницы
+    json_ld          — JSON-LD структурированные данные
+#}
+<!doctype html>
+<html ⚡ lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+
+    {# --- Шрифты Google Fonts (как в легаси AMP-шаблоне) --- #}
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,700,900&display=swap&subset=cyrillic">
+
+    {# --- Favicon и manifest --- #}
+    <link href="{{ request.url_for('static', path='images/common/favicon.ico') }}" rel="shortcut icon" type="image/x-icon">
+
+    {# --- AMP Runtime --- #}
+    <script async src="https://cdn.ampproject.org/v0.js"></script>
+
+    {# --- AMP-компоненты, общие для всех страниц --- #}
+    <script async custom-element="amp-sidebar" src="https://cdn.ampproject.org/v0/amp-sidebar-0.1.js"></script>
+    <script async custom-element="amp-analytics" src="https://cdn.ampproject.org/v0/amp-analytics-0.1.js"></script>
+
+    {# --- AMP-компоненты, подключаемые дочерними шаблонами ---
+       Каждый AMP-компонент (amp-carousel, amp-form, amp-iframe и пр.)
+       требует отдельного <script async custom-element="..." src="...">.
+       Дочерний шаблон добавляет нужные компоненты через этот блок. #}
+    {% block amp_head_scripts %}{% endblock %}
+
+    {# --- SEO: title + description + keywords --- #}
+    {% block meta %}
+        {% if seo %}
+        <title>{{ seo.title }}</title>
+        <meta name="keywords" content="{{ seo.keywords }}">
+        <meta name="description" content="{{ seo.description }}">
+        {% endif %}
+    {% endblock %}
+
+    {# --- SEO: canonical URL ---
+       В AMP canonical ОБЯЗАТЕЛЕН и указывает на основную (не-AMP) версию.
+       Это связывает AMP и обычную версию в глазах поисковиков. #}
+    {% block canonical %}{% endblock %}
+
+    {# --- SEO: Open Graph мета-теги --- #}
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:site_name" content="Веколом — приём электронного лома">
+    {% block og_meta %}{% endblock %}
+
+    {# --- AMP Boilerplate CSS ---
+       Этот блок ОБЯЗАТЕЛЕН для AMP-страниц и не подлежит изменению.
+       Скрывает контент до загрузки AMP runtime, предотвращая FOUC.
+       Источник: https://amp.dev/boilerplate/ #}
+    <style amp-boilerplate>body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}</style><noscript><style amp-boilerplate>body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}</style></noscript>
+
+    {# --- Пользовательские стили (inline, единственный разрешённый способ в AMP) ---
+       AMP разрешает только один <style amp-custom> на странице, макс. 75 КБ.
+       Стили перенесены из легаси AMP-шаблона; структура и палитра идентичны
+       основной версии сайта. #}
+    <style amp-custom>
+        /* ============================================================
+           Базовый сброс (нормализация + box-sizing)
+           ============================================================ */
+        html { font-family: sans-serif; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; font-size: 10px; -webkit-tap-highlight-color: rgba(0,0,0,0); }
+        body { margin: 0; font-family: "Roboto", Helvetica, Arial, sans-serif; font-size: 18px; font-weight: 400; line-height: 1.375; color: #818285; -webkit-text-size-adjust: none; }
+        *, *:before, *:after { -webkit-box-sizing: border-box; -moz-box-sizing: border-box; box-sizing: border-box; }
+        footer, header, nav, section { display: block; }
+
+        /* ============================================================
+           Типографика
+           ============================================================ */
+        a { background-color: transparent; font: inherit; color: inherit; text-decoration: none; }
+        a:active, a:hover { outline: 0; text-decoration: none; }
+        a:hover { color: #23beed; }
+        a:focus { outline: none; text-decoration: none; color: inherit; }
+
+        img { vertical-align: middle; max-width: 100%; height: auto; border: 0; }
+
+        h1, h2, h3, h4, h5 { font-family: "Roboto", Helvetica, Arial, sans-serif; font-weight: 300; margin: 0; }
+        h1 { font-size: 80px; line-height: 1; font-weight: 700; }
+        h2 { font-size: 60px; line-height: 1.2; font-weight: 700; color: #818285; }
+        h3 { font-size: 48px; line-height: 1.2; font-weight: 900; text-transform: uppercase; color: #3a393a; }
+        h4 { font-size: 36px; line-height: 1.2; font-weight: 700; color: #3a393a; letter-spacing: -1px; }
+        h5 { font-size: 30px; line-height: 1.2; color: #23beed; font-weight: 100; letter-spacing: -1px; }
+        @media (max-width: 991px) {
+            h1 { font-size: 56px; }
+            h2 { font-size: 42px; }
+            h3 { font-size: 33.6px; }
+        }
+        @media (max-width: 767px) {
+            h1 { font-size: 40px; }
+            h2 { font-size: 30px; }
+            h3 { font-size: 24px; }
+        }
+        .h3--mod { text-transform: none; color: #818285; }
+        p { line-height: 1.375; margin: 0; }
+        p a { color: #23beed; }
+        p a:hover { text-decoration: underline; }
+
+        hr { margin-top: 12px; margin-bottom: 8px; border: 0; border-top: 1px solid #d2d3d4; }
+        hr.myhr { border: none; height: 1px; margin: 0; background: #23beed; }
+
+        ul { padding: 0; list-style: none; margin: 0; }
+        ul li { padding: 0; list-style: none; margin: 0; }
+
+        .text-center { text-align: center; }
+        .ls--mod { letter-spacing: -1.2px; }
+        @media (max-width: 767px) {
+            .center767, .center767 * { text-align: center; }
+        }
+
+        /* ============================================================
+           Цветовые фоны
+           ============================================================ */
+        .bg-default { background: #818285; }
+        .bg-default * { color: #ffffff; }
+        .bg-lighter { background: #ececec; }
+
+        /* ============================================================
+           Сетка (Bootstrap-подобная)
+           ============================================================ */
+        .container { margin-right: auto; margin-left: auto; padding-left: 15px; padding-right: 15px; }
+        @media (min-width: 768px) { .container { width: 750px; } }
+        @media (min-width: 992px) { .container { width: 970px; } }
+        @media (min-width: 1200px) { .container { width: 1170px; } }
+
+        .row { margin-left: -15px; margin-right: -15px; }
+        .row:before, .row:after, .container:before, .container:after { content: " "; display: table; }
+        .row:after, .container:after { clear: both; }
+
+        .col-sm-2, .col-md-2, .col-md-3, .col-sm-4, .col-md-4, .col-lg-4,
+        .col-sm-5, .col-md-5, .col-sm-6, .col-md-6, .col-sm-7, .col-md-7,
+        .col-md-8, .col-md-9, .col-lg-9, .col-sm-10, .col-md-10,
+        .col-sm-11, .col-md-11, .col-xs-12, .col-sm-12, .col-md-12 {
+            position: relative; min-height: 1px; padding-left: 15px; padding-right: 15px;
+        }
+        .col-xs-12 { float: left; width: 100%; }
+
+        @media (min-width: 768px) {
+            .col-sm-2, .col-sm-4, .col-sm-5, .col-sm-6, .col-sm-7, .col-sm-10, .col-sm-11, .col-sm-12 { float: left; }
+            .col-sm-12 { width: 100%; }
+            .col-sm-11 { width: 91.66666667%; }
+            .col-sm-10 { width: 83.33333333%; }
+            .col-sm-7  { width: 58.33333333%; }
+            .col-sm-6  { width: 50%; }
+            .col-sm-5  { width: 41.66666667%; }
+            .col-sm-4  { width: 33.33333333%; }
+            .col-sm-2  { width: 16.66666667%; }
+            .col-sm-offset-1 { margin-left: 8.33333333%; }
+            .col-sm-offset-0 { margin-left: 0%; }
+        }
+        @media (min-width: 992px) {
+            .col-md-2, .col-md-3, .col-md-4, .col-md-5, .col-md-6, .col-md-7,
+            .col-md-8, .col-md-9, .col-md-10, .col-md-11, .col-md-12 { float: left; }
+            .col-md-12 { width: 100%; }
+            .col-md-11 { width: 91.66666667%; }
+            .col-md-10 { width: 83.33333333%; }
+            .col-md-9  { width: 75%; }
+            .col-md-8  { width: 66.66666667%; }
+            .col-md-7  { width: 58.33333333%; }
+            .col-md-6  { width: 50%; }
+            .col-md-5  { width: 41.66666667%; }
+            .col-md-4  { width: 33.33333333%; }
+            .col-md-3  { width: 25%; }
+            .col-md-2  { width: 16.66666667%; }
+            .col-md-offset-1 { margin-left: 8.33333333%; }
+        }
+        @media (min-width: 1200px) {
+            .col-lg-4, .col-lg-9 { float: left; }
+            .col-lg-9 { width: 75%; }
+            .col-lg-4 { width: 33.33333333%; }
+        }
+        @media (max-width: 767px) {
+            .row .col-xs-12 { margin-top: 30px; margin-bottom: 30px; }
+        }
+        @media (max-width: 991px) {
+            .row .col-sm-12, .row .col-sm-6 { margin-top: 30px; margin-bottom: 30px; }
+        }
+
+        /* ============================================================
+           Header — sticky навигация
+           ============================================================ */
+        header { background: #3a393a; }
+        @media (max-width: 1199px) { header { text-align: center; } }
+
+        .stuck_container { background: #ffffff; position: relative; }
+        .stuck_container:before, .stuck_container:after { content: " "; display: table; }
+        .stuck_container:after { clear: both; }
+
+        /* Negative margin-bottom — подтягивает следующую секцию (карусель,
+           well2 и т.п.) под низ header'а, убирая «пустоту» между ними.
+           Значения взяты из легаси AMP-шаблона. */
+        @media (min-width: 776px) {
+            .stuck_container { margin-bottom: -30px; }
+        }
+        @media (max-width: 1200px) {
+            .stuck_container { margin-bottom: -20px; }
+        }
+
+        .wr { display: flex; }
+        @media (max-width: 1199px) {
+            .wr { display: flex; flex-direction: column; }
+        }
+
+        .custom-navbar-header {
+            display: flex; width: 100%; flex-direction: column;
+            padding-top: 10px; padding-bottom: 10px;
+        }
+        @media (min-width: 1200px) {
+            .custom-navbar-header { flex: 3 !important; flex-direction: row !important; }
+        }
+
+        .menu_icon_wr {
+            display: flex; width: 100%; align-items: center; justify-content: flex-start;
+        }
+        @media (min-width: 992px) {
+            .menu_icon_wr { display: flex; align-items: center; flex: 0.7; }
+        }
+        .menu_icon {
+            padding-left: 15px; padding-right: 15px;
+            font-size: 1.7em; width: 100%; text-align: left; cursor: pointer;
+        }
+        @media (min-width: 1200px) {
+            .menu_icon { padding-left: 0; padding-right: 0; text-align: center; }
+        }
+
+        /* CSS-only hamburger icon — без зависимости от внешней иконки */
+        .menu_burger {
+            display: inline-block; width: 25px; height: 18px; position: relative;
+        }
+        .menu_burger span {
+            display: block; position: absolute; height: 3px; width: 100%;
+            background: #3a393a; border-radius: 2px; left: 0;
+        }
+        .menu_burger span:nth-child(1) { top: 0; }
+        .menu_burger span:nth-child(2) { top: 7px; }
+        .menu_burger span:nth-child(3) { top: 14px; }
+
+        .brand-wrapper {
+            display: flex; flex-direction: row; flex: 2;
+            align-self: center; align-items: center; justify-content: center;
+        }
+        .brand-header-wr, .logo-header-wr {}
+        .custom-brand {
+            font-size: 28px; text-transform: uppercase; font-weight: 900;
+            color: #23beed; margin-right: 15px;
+        }
+
+        .slogan-wrapper {
+            margin-bottom: 20px; display: flex; width: 100%;
+            justify-content: center; align-items: center;
+        }
+        @media (min-width: 768px) {
+            .slogan-wrapper { margin-bottom: 0; flex: 4; }
+            .navbar-brand-slogan { margin-left: 50px; text-align: left; }
+        }
+        .navbar-brand-slogan {
+            margin-top: 0; text-align: center; display: inline-block; float: left;
+            font-size: 20px; line-height: 30px; font-weight: 700;
+            letter-spacing: -0.35px; color: #3a393a;
+        }
+
+        .phone-wrapper { flex: 4; }
+        .phones { text-align: center; }
+        @media (max-width: 600px) { .phones { margin-top: 0; } }
+        .navbar-phone-item {
+            font-size: 20px; font-weight: 700; letter-spacing: -0.35px;
+            color: #3a393a; margin-bottom: 7px;
+        }
+
+        /* Навигационное меню (desktop) */
+        .customnavbar {
+            flex: 2; padding-right: 50px; flex-direction: column;
+        }
+        @media (max-width: 1199px) {
+            .customnavbar { padding-right: 0; min-height: 0; }
+        }
+        @media (max-width: 767px) {
+            .customnavbar { display: none; }
+        }
+        .custom-navbar-nav {
+            height: 100%; width: 100%; display: flex; flex-direction: row;
+        }
+        .nav-item {
+            width: 100%; height: 100%; display: flex; flex: 1;
+            align-items: center; justify-content: center;
+        }
+        @media (max-width: 1199px) { .nav-item { min-height: 50px; } }
+        .nav-item-active { color: #3a393a; background-color: #23beed; }
+        .item {
+            font-family: "Roboto", Helvetica, Arial, sans-serif;
+            font-size: 20px; font-weight: 400; text-transform: uppercase;
+        }
+
+        /* Мобильный sidebar */
+        amp-sidebar { background: #ffffff; width: 240px; }
+        #sidebar ul { padding: 20px 0; }
+        #sidebar li {
+            padding: 10px 20px 15px 20px;
+            font-size: 18px; text-transform: uppercase;
+            border-bottom: 1px solid #ececec;
+        }
+        #sidebar li a { color: #3a393a; }
+        #sidebar li a:hover { color: #23beed; }
+
+        /* ============================================================
+           Кнопки
+           ============================================================ */
+        .btn {
+            display: inline-block; cursor: pointer;
+            border: 1px solid transparent; background: transparent; outline: none;
+            font-size: 22px; line-height: 1; letter-spacing: -0.55px;
+            padding: 18px 63px; font-weight: 400; text-align: center;
+        }
+        @media (max-width: 767px) {
+            .btn { font-size: 18px; padding: 18px 30px; }
+        }
+        .btn:hover { color: #23beed; background-color: #cfcfcf; border-color: #23beed; }
+        .btn-primary { color: #ffffff; background-color: #23beed; border-color: #23beed; }
+        .btn-primary:hover, .btn-primary:focus {
+            color: #23beed; background-color: transparent; border-color: #23beed;
+        }
+        .btn-lg { padding: 21px 42px; text-transform: uppercase; font-weight: 700; font-size: 20px; line-height: 1; }
+        .btn-sm { font-size: 20px; line-height: 1; padding: 20px 56px; text-transform: uppercase; }
+
+        .btn-link {
+            display: inline-block; color: #23beed; font-size: 18px;
+            font-weight: 400; line-height: 42px; padding-left: 55px;
+            position: relative; text-transform: uppercase;
+            background: transparent; border-color: transparent;
+        }
+        .btn-link:before {
+            position: absolute; display: inline-block; content: '\203A';
+            font-size: 28px; line-height: 38px; width: 42px; height: 42px;
+            left: 0; top: 0; color: #fff; text-align: center; background: #23beed;
+        }
+        .btn-link:hover { color: #818285; text-decoration: none; }
+        .btn-link:hover:before { background-color: #3a393a; }
+
+        /* ============================================================
+           Секции (well, well2, well3, well4)
+           ============================================================ */
+        .well  { padding-top: 85px;  padding-bottom: 100px; }
+        .well--mod { padding-bottom: 115px; }
+        .well2 { padding-top: 50px;  padding-bottom: 100px; }
+        .well3 { margin-top: -50px;  padding-top: 70px; padding-bottom: 96px; }
+        .well4 { padding-top: 58px;  padding-bottom: 101px; }
+
+        .row + * { margin-top: 30px; }
+        * + p { margin-top: 19px; }
+        * + .btn { margin-top: 20px; }
+        * + .row { margin-top: 30px; }
+        .row + .row { margin-top: 30px; }
+        h2 + .row { margin-top: 85px; }
+        h2 + p { margin-top: 81px; }
+        h2 + .offset { margin-top: 73px; }
+        .row + .btn { margin-top: 100px; }
+
+        .centered { text-align: center; margin-bottom: 50px; }
+        .main-centered { padding: 0 15px; }
+        .maintext { font-size: 20px; }
+        .mypadding { padding-top: 50px; }
+        .mycentered { padding-left: 80px; }
+        .pcustom { font-size: 17px; }
+        .error { font-size: 20px; color: red; }
+
+        /* ============================================================
+           Иконки действий (recycle / truck / ruble)
+           ============================================================ */
+        .icon { display: inline-block; text-align: center; }
+        .icon-list li .block-icon {
+            text-align: left; position: relative; padding-left: 123px;
+        }
+        .icon-list li .block-icon .icon {
+            display: inline-block; position: absolute; text-align: center;
+            -webkit-border-radius: 50%; -moz-border-radius: 50%; border-radius: 50%;
+            color: #fff; font-size: 48px; line-height: 110px; left: 0; top: -6px;
+        }
+        .pactions { padding-left: 20px; min-height: 115px; }
+
+        @media (max-width: 991px) {
+            .col-4_mod-list li:nth-child(n+3) { margin-top: 30px; }
+            .col-4_mod-list li:nth-child(2n+3) { clear: both; }
+        }
+        @media (max-width: 767px) {
+            .col-4_mod-list li:nth-child(n+2) { margin-top: 40px; }
+            .col-4_mod-list li:nth-child(n+1) {
+                float: none; text-align: center;
+                max-width: 370px; margin-left: auto; margin-right: auto;
+            }
+        }
+
+        /* ============================================================
+           Параллакс-секция (упрощённая для AMP — без скролл-эффекта)
+           ============================================================ */
+        .parallax { overflow: hidden; }
+        .parallax_image {
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            background-position: 50% 50%; background-size: cover; background-repeat: no-repeat;
+        }
+        .parallax_cnt { position: relative; }
+        .parallax_cnt h4 p, .parallax-text h4 { color: white; }
+        @media (min-width: 1400px) {
+            .parallax-text {
+                padding-top: 70px; width: 100%; color: white;
+                position: absolute; z-index: 99;
+            }
+        }
+
+        /* ============================================================
+           Thumbnail (превью изображений)
+           ============================================================ */
+        .thumb { display: block; position: relative; overflow: hidden; z-index: 2; }
+        .thumb img { width: 100%; height: auto; }
+        .thumb_overlay {
+            position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+            opacity: 0; color: #ffffff; background: transparent;
+        }
+
+        .thumbnail {
+            background: transparent; border: none;
+            margin-left: auto; margin-right: auto;
+        }
+        .thumbnail a > img { margin-left: auto; margin-right: auto; }
+        .thumbnail img { width: 100%; height: auto; }
+        .thumbnail4 { max-width: 570px; }
+        .thumbnail a.overlay {
+            position: relative; max-width: 100%; overflow: hidden; z-index: 2;
+            display: block;
+        }
+
+        /* ============================================================
+           Карточки позиций прайса (на главной)
+           ============================================================ */
+        .col-4_mod .block-item { margin-bottom: 15px; position: relative; }
+        .myname {
+            text-align: left; padding-top: 50px; padding-left: 50px;
+            position: absolute; z-index: 999; font-size: 20px; color: white;
+            text-shadow: 0 3px 0 #b2a98f, 0 14px 10px rgba(0,0,0,0.15),
+                         0 24px 2px rgba(0,0,0,0.1), 0 34px 30px rgba(0,0,0,0.1);
+        }
+        .myprice {
+            padding-top: 160px; padding-left: 50px;
+            position: absolute; z-index: 999; font-size: 30px; color: white;
+            text-shadow: 0 4px 3px rgba(0,0,0,0.4),
+                         0 8px 13px rgba(0,0,0,0.1),
+                         0 18px 23px rgba(0,0,0,0.1);
+        }
+        @media (max-width: 768px) {
+            .myname { padding-top: 50px; padding-left: 20px; }
+            .myprice { padding-top: 100px; }
+        }
+
+        /* ============================================================
+           Прайс-лист — таблица позиций
+           ============================================================ */
+        .panel {
+            margin-bottom: 22px; background-color: #ffffff;
+            border: 1px solid transparent; border-radius: 0;
+            -moz-box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+            -webkit-box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+        }
+        .panel-primary { border-color: #23beed; }
+
+        .price-table-foto { padding-top: 20px; min-height: 170px; }
+        .positionname {
+            padding: 0 20px 5px 10px; color: darkblue; padding-top: 20px;
+        }
+        .positionprice { text-align: center; font-size: 20px; padding-top: 20px; }
+        .mytext { padding: 0 20px 5px 10px; font-size: 20px; }
+
+        .positionprice-flex { display: flex; flex-direction: row; flex: 1; }
+        .price_flex_title {
+            min-height: 50px; display: flex; justify-content: center;
+            align-items: center; flex: 1;
+        }
+        .price_flex_value {
+            min-height: 50px; display: flex; align-items: center;
+            justify-content: center; flex: 1;
+        }
+        .flex_third_title_border { border-right: 1px #23beed solid; }
+        .flex_title_border { border-right: 1px #23beed solid; border-bottom: 1px #23beed solid; }
+        .flex_price_border { border-bottom: 1px #23beed solid; }
+        .plate_rules_text_wr { padding: 20px 20px 15px 10px; }
+
+        @media (max-width: 767px) {
+            .positionprice { font-weight: bold; text-align: center; font-size: 20px; }
+            .price-table-foto amp-img { position: absolute; left: 35%; }
+            .price-table-span { display: block; }
+            .price-table-pricebeznal { padding-bottom: 20px; }
+            .price-table-header-wr { display: none; }
+        }
+        @media (min-width: 768px) {
+            .positionprice {
+                font-weight: bold; padding-left: 10px;
+                text-align: left; font-size: 20px;
+            }
+            .price-table-foto amp-img { position: absolute; }
+            .price-table-span { display: none; }
+            .price-table-header-wr {
+                color: #ffffff; background-color: #2a7c95; border-color: #23beed;
+                display: flex; flex-direction: row;
+            }
+            .price-header-item { padding: 10px 15px; }
+            .price-table-header-title {
+                align-self: center; display: flex; flex: 1.3;
+            }
+            .price-table-header-foto, .price-table-header-pricenal,
+            .price-table-header-pricebeznal {
+                display: flex; align-self: center; text-align: center;
+                justify-items: center; justify-content: center; flex: 0.7;
+            }
+            .price-table-item-wr {
+                min-height: 180px; width: 100%;
+                display: flex; flex-direction: row;
+            }
+            .price-table-title { flex: 1.3; }
+            .price-table-foto, .price-table-pricenal,
+            .price-table-pricebeznal, .price-table-pricecard { flex: 0.7; }
+        }
+        .price-table-header-foto.price-header-item { justify-content: left; }
+
+        /* ============================================================
+           Контактная форма
+           ============================================================ */
+        .cform .mailform {
+            position: relative; text-align: left;
+            margin-left: auto; margin-right: auto; margin-top: 59px;
+        }
+        .cform .mailform fieldset { border: none; line-height: 0; padding: 0; margin: 0; min-width: 0; }
+        .cform .mailform label {
+            position: relative; display: block; width: 100%;
+            margin-top: 10px; font-weight: bold;
+        }
+        .cform .mailform label.textarea { width: 100%; margin-left: 0; margin-top: 50px; }
+        .cform .mailform label:first-child { margin-top: 0; }
+        .cform .mailform label input,
+        .cform .mailform label textarea {
+            display: block; width: 100%; margin: 0;
+            -webkit-appearance: none; outline: none;
+            font-family: "Roboto", Helvetica, Arial, sans-serif;
+            font-size: 16px; padding: 10px 19px; line-height: 24px;
+            color: #818285; background: transparent;
+            border: none; border-bottom: 1px solid #d8d8d8;
+            font-weight: 300; height: 44px; border-radius: 0;
+        }
+        .cform .mailform label textarea {
+            resize: none; overflow: auto;
+            height: 166px; border: 1px solid #d8d8d8;
+        }
+        @media (max-width: 1365px) {
+            .cform .mailform label { margin-top: 30px; }
+        }
+        .cform .mfControls {
+            margin-top: 22px; word-spacing: 10px; text-align: center;
+        }
+        .cform .mfControls .btn {
+            text-transform: none; text-align: center;
+            width: 59.74%; margin-left: auto; margin-right: auto;
+        }
+        @media (max-width: 479px) {
+            .cform .mfControls .btn { width: 100%; }
+        }
+
+        /* amp-form состояния (success/error) */
+        form.amp-form-submit-success [submit-success],
+        form.amp-form-submit-error [submit-error] { display: block; }
+        .form-success-msg {
+            background: #2E7D32; color: #fff;
+            padding: 12px 16px; margin-top: 16px; border-radius: 4px;
+            text-align: center; font-size: 16px;
+        }
+        .form-error-msg {
+            background: #F44336; color: #fff;
+            padding: 12px 16px; margin-top: 16px; border-radius: 4px;
+            text-align: center; font-size: 16px;
+        }
+
+        /* ============================================================
+           Footer
+           ============================================================ */
+        /* Фоновое изображение footer'а — как в легаси AMP-шаблоне.
+           Jinja2 evaluates request.url_for внутри inline CSS без проблем. */
+        footer {
+            background: #3a393a url({{ request.url_for('static', path='images/common/footer_bg.jpg') }}) 50% 50% no-repeat;
+            background-size: cover;
+            color: #fff;
+        }
+        footer .map { color: #818285; }
+        footer section:first-child {
+            padding-top: 96px; padding-bottom: 80px;
+            font-size: 14px; line-height: 16px;
+        }
+        .copyright {
+            display: block; padding-bottom: 70px; font-size: 14px;
+            text-align: center; text-transform: uppercase;
+        }
+        .copyright a:hover { text-decoration: underline; }
+        .pcustom-footer { font-size: 17px; }
+        .a-pcustom-footer { color: #fff; }
+        .a-pcustom-footer:hover { color: #23beed; }
+
+        /* Карта на странице контактов */
+        .contacts-map { padding-top: 60px; }
+
+        /* ============================================================
+           Дополнительные стили страницы (переопределяются дочерними шаблонами)
+           ============================================================ */
+        {% block amp_extra_css %}{% endblock %}
+    </style>
+</head>
+<body>
+
+    {# === Мобильное боковое меню (amp-sidebar) === #}
+    <amp-sidebar id="sidebar" layout="nodisplay" side="left">
+        <ul>
+            <li><a href="/amp/">Главная</a></li>
+            <li><a href="/amp/pricelist/">Прайс-лист</a></li>
+            <li><a href="/amp/contacts/">Контакты</a></li>
+        </ul>
+    </amp-sidebar>
+
+    {# === Header — sticky навигация (мобильный burger + desktop nav) === #}
+    <header>
+        <div id="stuck_container" class="stuck_container">
+            <div class="wr">
+                <div class="custom-navbar-header">
+                    {# CSS-only burger-иконка для открытия sidebar (только мобильный вид) #}
+                    <div class="menu_icon_wr">
+                        <div role="button" on="tap:sidebar.toggle" tabindex="0" class="menu_icon" aria-label="Открыть меню">
+                            <span class="menu_burger"><span></span><span></span><span></span></span>
+                        </div>
+                    </div>
+                    <div class="brand-wrapper">
+                        <div class="brand-header-wr">
+                            <a href="/amp/">
+                                <h1 class="custom-brand">ВЕКО</h1>
+                            </a>
+                        </div>
+                        <div class="logo-header-wr">
+                            <amp-img layout="fixed" width="45" height="40" class="custom-brand-responsive"
+                                     src="{{ request.url_for('static', path='images/common/logo.png') }}"
+                                     alt="Логотип Веколом"></amp-img>
+                        </div>
+                    </div>
+                    <div class="slogan-wrapper">
+                        <p class="navbar-brand-slogan">ПРИЕМ <br>ЭЛЕКТРОННОГО ЛОМА</p>
+                    </div>
+                    <div class="phone-wrapper">
+                        <div class="phones">
+                            <p class="navbar-phone-item"><a href="tel:+74994998474">8(499)499-84-74</a></p>
+                            <p class="navbar-phone-item"><a href="tel:+79175995222">8(917)599-52-22</a></p>
+                            <p class="navbar-phone-item">
+                                <a href="https://wa.me/79265090263">8(926)509-02-63&nbsp;&nbsp;<amp-img width="20" height="20"
+                                    src="{{ request.url_for('static', path='images/common/whatsapp_150.png') }}" alt="WhatsApp"></amp-img></a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {# Desktop nav. Активный пункт меню задаётся в дочернем шаблоне
+                   через {% block nav_active %}{% endblock %}. Используем
+                   set...endset, чтобы захватить значение блока в переменную
+                   и не вывести её в HTML лишний раз. #}
+                {% set active %}{% block nav_active %}{% endblock %}{% endset %}
+                {% set active = active | trim %}
+                <nav class="customnavbar custom-navbar-default custom-navbar-static-top">
+                    <div class="custom-navbar-nav custom-sf-menu custom-navbar-right">
+                        <div class="nav-item {% if active == 'home' %}nav-item-active{% endif %}">
+                            <div class="item"><a href="/amp/">Главная</a></div>
+                        </div>
+                        <div class="nav-item {% if active == 'pricelist' %}nav-item-active{% endif %}">
+                            <div class="item"><a href="/amp/pricelist/">Прайс-лист</a></div>
+                        </div>
+                        <div class="nav-item {% if active == 'contacts' %}nav-item-active{% endif %}">
+                            <div class="item"><a href="/amp/contacts/">Контакты</a></div>
+                        </div>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    {# === Основной контент === #}
+    {% block content %}{% endblock %}
+
+    {# === Footer === #}
+    {% block footer %}
+    <footer>
+        <section class="center767">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-4 col-sm-6 col-xs-12">
+                        <h5>Звоните или пишите нам</h5>
+                        <p class="pcustom pcustom-footer"><a class="a-pcustom-footer" href="tel:+74994998474">8(499)499-84-74</a></p>
+                        <p class="pcustom pcustom-footer"><a class="a-pcustom-footer" href="tel:+79175995222">8(917)599-52-22</a></p>
+                        <p class="pcustom pcustom-footer">
+                            <a class="a-pcustom-footer" href="https://wa.me/79265090263">8(926)509-02-63&nbsp;&nbsp;<amp-img width="20" height="20"
+                                src="{{ request.url_for('static', path='images/common/whatsapp_150.png') }}" alt="WhatsApp"></amp-img></a>
+                        </p>
+                        <p class="pcustom pcustom-footer"><a class="a-pcustom-footer" href="mailto:vekomet@gmail.com">vekomet@gmail.com</a></p>
+                        <p class="pcustom"><a href="/amp/contacts/">Оставить сообщение</a></p>
+                    </div>
+                    <div class="col-md-offset-1 col-md-3 col-sm-6 col-sm-offset-0 col-xs-12">
+                        <h5>Мы находимся по адресу:</h5>
+                        <p class="pcustom">Московская область</p>
+                        <p class="pcustom">г.Электросталь. ул.Пионерская 22</p>
+                    </div>
+                    <div class="col-md-4 col-sm-4 col-xs-12">
+                        <div class="mycentered">
+                            <amp-img layout="fixed" width="160" height="160"
+                                     src="{{ request.url_for('static', path='images/entries/home/logofooter.png') }}"
+                                     alt="Веколом"></amp-img>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="copyright">
+            <div class="container">© 2025&nbsp; Powered by FastAPI</div>
+        </section>
+    </footer>
+    {% endblock %}
+
+    {# === SEO: JSON-LD структурированные данные === #}
+    {% block json_ld %}{% endblock %}
+
+    {# === Yandex.Metrika через amp-analytics ===
+       AMP запрещает произвольный JS, поэтому Метрика подключается через
+       стандартный AMP-компонент с типом "metrika" (официальный тип Яндекса). #}
+    <amp-analytics type="metrika">
+        <script type="application/json">
+        {
+            "vars": { "counterId": "36744865" },
+            "triggers": {
+                "notBounce": {
+                    "on": "timer",
+                    "timerSpec": { "immediate": false, "interval": 15, "maxTimerLength": 16 },
+                    "request": "notBounce"
+                }
+            }
+        }
+        </script>
+    </amp-analytics>
+
+</body>
+</html>

@@ -1,0 +1,282 @@
+{% extends 'amp/base.html' %}
+{#
+  AMP-версия главной страницы — визуально идентична легаси AMP-шаблону
+  и обычной версии home/home.html.
+
+  Структура секций:
+    1. carousel  — amp-carousel со слайдами (data: slides)
+    2. well3     — главный текстовый блок + ссылка на контакты (data: main)
+    3. well      — три блока действий (data: action1/action2/action3)
+    4. parallax  — параллакс-секция со слоганом и кнопкой (data: slogan1)
+    5. well2     — блок «МЫ ПРИНИМАЕМ» (data: priem)
+    6. well4     — карточки позиций прайс-листа (data: positions)
+
+  Контекст роутера:
+    seo, slides, main, action1, action2, action3, slogan1, priem, positions
+#}
+
+{# --- AMP-компоненты, нужные только на этой странице --- #}
+{% block amp_head_scripts %}
+    <script async custom-element="amp-carousel" src="https://cdn.ampproject.org/v0/amp-carousel-0.1.js"></script>
+    <script async custom-element="amp-iframe" src="https://cdn.ampproject.org/v0/amp-iframe-0.1.js"></script>
+{% endblock %}
+
+{# --- SEO: canonical → основная (не-AMP) версия --- #}
+{% block canonical %}
+    <link rel="canonical" href="{{ site_url }}/">
+{% endblock %}
+
+{# --- SEO: Open Graph мета-теги --- #}
+{% block og_meta %}
+    {% if seo %}
+    <meta property="og:title" content="{{ seo.title }}">
+    <meta property="og:description" content="{{ seo.description }}">
+    {% endif %}
+    <meta property="og:url" content="{{ site_url }}/">
+    <meta property="og:image" content="{{ og_image_default }}">
+{% endblock %}
+
+{# --- Активный пункт меню --- #}
+{% block nav_active %}home{% endblock %}
+
+{% block content %}
+
+{# ------------------------------------------------------------------ #}
+{# Карусель                                                            #}
+{# ------------------------------------------------------------------ #}
+<section class="camera_container">
+    <div id="camera" class="camera_wrap">
+        <amp-carousel width="1000"
+                      height="300"
+                      layout="responsive"
+                      type="slides"
+                      autoplay
+                      delay="5000"
+                      loop>
+            {% for slide in slides %}
+            {# slide.photo — относительный путь "media/filename.jpg".
+               slide.photo_amp — отдельная AMP-версия (если есть). #}
+            <amp-img src="/media/{{ slide.photo_amp or slide.photo }}"
+                     width="1000"
+                     height="300"
+                     layout="responsive"
+                     alt="{{ slide.text | striptags if slide.text else 'Веколом' }}">
+            </amp-img>
+            {% endfor %}
+        </amp-carousel>
+    </div>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Главный текстовый блок                                             #}
+{# ------------------------------------------------------------------ #}
+<section class="well3 bg-lighter">
+    <div class="container">
+        {% for m in main %}
+        <div class="row">
+            <div class="col-md-12 col-sm-12 col-xs-12">
+                <div class="centered main-centered">
+                    <h3 class="h3--mod">{{ m.header }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-7 col-sm-7 col-xs-12">
+                <div class="maintext">{{ m.text | safe }}</div>
+            </div>
+            <div class="col-md-5 col-sm-5 col-xs-12">
+                <div class="thumbnail thumbnail4">
+                    <a class="overlay" href="/amp/contacts/">
+                        <amp-img width="550" height="350" layout="responsive"
+                                 src="{{ request.url_for('static', path='images/entries/home/img-vibe.jpg') }}"
+                                 alt="Контакты — приём электронного лома"></amp-img>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Блоки действий (action1 / action2 / action3)                       #}
+{# ------------------------------------------------------------------ #}
+<section class="well well--mod bg-default">
+    <div class="container">
+        <ul class="icon-list row col-4_mod-list">
+            <li class="col-md-4 col-sm-6 col-xs-12">
+                <div class="block-icon">
+                    <div class="icon">
+                        <amp-img width="120" height="120"
+                                 src="{{ request.url_for('static', path='images/entries/home/recycle_icon.png') }}"
+                                 alt="{{ action1.text | striptags if action1 else 'Переработка' }}"></amp-img>
+                    </div>
+                    {% if action1 %}<div class="pactions">{{ action1.text | safe }}</div>{% endif %}
+                </div>
+            </li>
+            <li class="col-md-4 col-sm-6 col-xs-12">
+                <div class="block-icon">
+                    <div class="icon">
+                        <amp-img width="120" height="120"
+                                 src="{{ request.url_for('static', path='images/entries/home/truck_icon.png') }}"
+                                 alt="{{ action2.text | striptags if action2 else 'Доставка' }}"></amp-img>
+                    </div>
+                    {% if action2 %}<div class="pactions">{{ action2.text | safe }}</div>{% endif %}
+                </div>
+            </li>
+            <li class="col-md-4 col-sm-6 col-xs-12">
+                <div class="block-icon">
+                    <div class="icon">
+                        <amp-img width="120" height="120"
+                                 src="{{ request.url_for('static', path='images/entries/home/ruble_icon.png') }}"
+                                 alt="{{ action3.text | striptags if action3 else 'Оплата' }}"></amp-img>
+                    </div>
+                    {% if action3 %}<div class="pactions">{{ action3.text | safe }}</div>{% endif %}
+                </div>
+            </li>
+        </ul>
+    </div>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Параллакс-секция со слоганом                                        #}
+{# AMP не поддерживает скролл-параллакс, но сохраняем фон-картинку    #}
+{# через background-image — визуально идентично основной версии.       #}
+{# ------------------------------------------------------------------ #}
+<section class="parallax well1">
+    <div class="parallax_image"
+         style="background-image: url({{ request.url_for('static', path='images/entries/home/parallax-1.jpg') }}); height: 551px;">
+        <div class="parallax_cnt">
+            <div class="container text-center">
+                {% for slogan in slogan1 %}
+                <h4>{{ slogan.text | safe }}</h4>
+                {% endfor %}
+                <a href="/amp/contacts/" class="btn btn-primary btn-lg">Оставьте сообщение</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Мы принимаем                                                        #}
+{# ------------------------------------------------------------------ #}
+<section class="well2">
+    <div class="container">
+        <h2 class="text-center">МЫ ПРИНИМАЕМ</h2>
+        <div class="row offset">
+            {% if priem | length == 3 %}
+                {% for p in priem %}
+                <div class="col-md-4 col-sm-4 col-xs-12">
+                    <h4 class="ls--mod">{{ p.header }}</h4>
+                    {{ p.text | safe }}
+                </div>
+                {% endfor %}
+                <div class="col-md-12 col-sm-12 col-xs-12 mypadding">
+                    <a href="/amp/pricelist/" class="btn-link offset-2">ПОДРОБНЕЕ</a>
+                </div>
+            {% else %}
+                {% for p in priem %}
+                <div class="col-md-5 col-md-offset-1 col-sm-5 col-sm-offset-1 col-xs-12">
+                    <h4 class="ls--mod">{{ p.header }}</h4>
+                    {{ p.text | safe }}
+                </div>
+                {% endfor %}
+                <div class="col-md-11 col-md-offset-1 col-sm-11 col-sm-offset-1 col-xs-12 mypadding">
+                    <a href="/amp/pricelist/" class="btn-link offset-2">ПОДРОБНЕЕ</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Карточки позиций прайс-листа (превью)                              #}
+{# ------------------------------------------------------------------ #}
+<section class="well4">
+    <div class="container text-center">
+        <div class="row col-4_mod mod">
+            {% for position in positions %}
+            <div class="col-md-4 col-sm-6 col-xs-12 block-item">
+                <div class="myname">{{ position.name }}</div>
+                <div class="myprice">{{ position.price }}</div>
+                <a href="/media/{{ position.photo2 }}" class="thumb">
+                    <amp-img width="370" height="260" layout="responsive"
+                             src="/media/{{ position.avatar }}"
+                             alt="{{ position.name }}"></amp-img>
+                    <span class="thumb_overlay"></span>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        <a href="/amp/pricelist/" class="btn btn-primary btn-sm">Полный прайс-лист</a>
+    </div>
+</section>
+
+<hr>
+
+{# ------------------------------------------------------------------ #}
+{# Карта (Яндекс.Карты через amp-iframe)                               #}
+{# AMP не позволяет подключить Yandex Maps JS API напрямую.            #}
+{# Используем widget-формат — он не требует API-ключа и не нарушает   #}
+{# CORS для AMP. Аналог легаси версии (там был Google Maps embed).     #}
+{# ------------------------------------------------------------------ #}
+<section class="map">
+    <amp-iframe width="600"
+                title="ООО ВеКо"
+                height="200"
+                layout="responsive"
+                sandbox="allow-scripts allow-same-origin allow-popups"
+                frameborder="0"
+                src="https://yandex.ru/map-widget/v1/?ll=38.450595%2C55.775893&z=16&pt=38.450595%2C55.775893%2Cpm2blm&l=map">
+        {# Fallback — показывается, если iframe не загрузился #}
+        <amp-img placeholder
+                 layout="fill"
+                 src="{{ request.url_for('static', path='images/common/footer_bg.jpg') }}"
+                 alt="Карта — ООО ВеКо"></amp-img>
+    </amp-iframe>
+</section>
+
+{% endblock %}
+
+{# --- SEO: JSON-LD LocalBusiness — структурированные данные ---
+   Идентичны основной версии — Google использует JSON-LD
+   вне зависимости от AMP/non-AMP. #}
+{% block json_ld %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "ВеКо — приём электронного лома",
+    "description": "{{ seo.description if seo else 'Приём электронного лома по выгодным ценам' }}",
+    "url": "{{ site_url }}/",
+    "telephone": ["+7-499-499-84-74", "+7-917-599-52-22", "+7-926-509-02-63"],
+    "email": "vekomet@gmail.com",
+    "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "ул. Пионерская, 22",
+        "addressLocality": "Электросталь",
+        "addressRegion": "Московская область",
+        "addressCountry": "RU"
+    },
+    "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 55.775893,
+        "longitude": 38.450595
+    },
+    "openingHoursSpecification": [
+        {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+            "opens": "08:00",
+            "closes": "18:00"
+        },
+        {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": "Saturday",
+            "opens": "08:00",
+            "closes": "12:00"
+        }
+    ]
+}
+</script>
+{% endblock %}

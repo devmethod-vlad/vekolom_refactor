@@ -14,23 +14,9 @@ Table names are preserved exactly:
 This greatly simplifies migration from the old database, because you can copy
 data table-to-table with minimal transformations.
 
-Extra columns
--------------
-We added two generic columns to most tables:
-
-* `sort_order` — explicit ordering for UI lists (default: 0)
-* `is_active`  — soft-disable row without deleting it (default: true)
-
-Indexes
--------
-For list screens and home page rendering we almost always query:
-    WHERE is_active = true
-    ORDER BY sort_order, id
-
-So we add a composite index `(is_active, sort_order, id)` for those tables.
 """
 
-from sqlalchemy import Index, Integer, String, Text
+from sqlalchemy import BigInteger, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.db.base import Base
@@ -41,7 +27,7 @@ class CoreSeo(Base):
 
     __tablename__ = "core_coreseo"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -73,12 +59,12 @@ class MainCarousel(Base):
 
     __tablename__ = "maincarousel"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    photo: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    photo: Mapped[str | None] = mapped_column(String(100), nullable=True)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    photo_amp: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    photo_turbo: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    photo_webp: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    photo_amp: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    photo_turbo: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    photo_webp: Mapped[str | None] = mapped_column(String(600), nullable=True)
 
     __table_args__ = (
         Index(
@@ -86,7 +72,7 @@ class MainCarousel(Base):
             "text",
             postgresql_using="gin",
             postgresql_ops={"text": "gin_trgm_ops"},
-        )
+        ),
     )
 
 
@@ -95,7 +81,7 @@ class MainText(Base):
 
     __tablename__ = "maintext"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     header: Mapped[str | None] = mapped_column(String(300), nullable=True)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -120,7 +106,7 @@ class Action(Base):
 
     __tablename__ = "actions"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
@@ -129,7 +115,7 @@ class Action(Base):
             "text",
             postgresql_using="gin",
             postgresql_ops={"text": "gin_trgm_ops"},
-        )
+        ),
     )
 
 
@@ -138,7 +124,7 @@ class Priem(Base):
 
     __tablename__ = "priem"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     header: Mapped[str | None] = mapped_column(String(300), nullable=True)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -154,7 +140,7 @@ class Priem(Base):
             "text",
             postgresql_using="gin",
             postgresql_ops={"text": "gin_trgm_ops"},
-        )
+        ),
     )
 
 
@@ -163,7 +149,7 @@ class Slogan(Base):
 
     __tablename__ = "slogan1"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
@@ -172,5 +158,5 @@ class Slogan(Base):
             "text",
             postgresql_using="gin",
             postgresql_ops={"text": "gin_trgm_ops"},
-        )
+        ),
     )

@@ -1,0 +1,190 @@
+{% extends 'amp/base.html' %}
+{#
+  AMP-версия страницы контактов — визуально идентична легаси AMP-шаблону
+  и обычной версии contacts/contacts.html.
+
+  Структура:
+    - Контактная информация (слева) + форма (справа)
+    - Карта (Yandex Static Maps) под формой
+
+  Форма реализована через amp-form (XHR-отправка):
+    - action-xhr   — POST на /amp/contacts/submit/
+    - submit-success/submit-error — блоки, показываемые при ответе сервера
+    - Сервер должен вернуть JSON с CORS-заголовками
+      (см. router.py — _build_amp_cors_headers)
+
+  Карта: AMP не поддерживает Yandex Maps JS API. Используем
+  Static Maps API — одно изображение карты с меткой,
+  обёрнутое в <amp-img>. Альтернатива: amp-iframe со встроенной картой.
+
+  Контекст роутера:
+    seo, contacts, yandex_maps_api_key
+#}
+
+{# --- AMP-компоненты, нужные только на этой странице --- #}
+{% block amp_head_scripts %}
+    <script async custom-element="amp-form" src="https://cdn.ampproject.org/v0/amp-form-0.1.js"></script>
+    <script async custom-element="amp-iframe" src="https://cdn.ampproject.org/v0/amp-iframe-0.1.js"></script>
+{% endblock %}
+
+{# --- SEO: title из ContactsSeo (queryset, итерируем) --- #}
+{% block meta %}
+    {% for s in seo %}
+    <title>{{ s.title }}</title>
+    <meta name="keywords" content="{{ s.keywords }}">
+    <meta name="description" content="{{ s.description }}">
+    {% endfor %}
+{% endblock %}
+
+{# --- SEO: canonical → основная (не-AMP) версия --- #}
+{% block canonical %}
+    <link rel="canonical" href="{{ site_url }}/contacts/">
+{% endblock %}
+
+{# --- SEO: Open Graph мета-теги --- #}
+{% block og_meta %}
+    {% for s in seo %}
+    <meta property="og:title" content="{{ s.title }}">
+    <meta property="og:description" content="{{ s.description }}">
+    {% endfor %}
+    <meta property="og:url" content="{{ site_url }}/contacts/">
+    <meta property="og:image" content="{{ og_image_default }}">
+{% endblock %}
+
+{# --- Активный пункт меню --- #}
+{% block nav_active %}contacts{% endblock %}
+
+{# --- Доп. стили страницы контактов --- #}
+{% block amp_extra_css %}
+    .custom-well2 { padding-top: 100px; padding-bottom: 60px; }
+    .contact-list { padding-top: 20px; }
+{% endblock %}
+
+{% block content %}
+<section class="custom-well2">
+    <div class="container">
+        <div class="row">
+
+            {# --- Контактная информация (из БД) --- #}
+            <div class="col-md-4 col-sm-12 contact-list">
+                <h2 class="text-center">Контакты</h2>
+                {% for contact in contacts %}
+                {{ contact.text | safe }}
+                {% endfor %}
+            </div>
+
+            {# --- Форма обратной связи --- #}
+            <div class="col-md-8 col-sm-12">
+                <h2 class="text-center">Оставьте сообщение</h2>
+                <div class="cform">
+                    {#
+                      amp-form: отправляет данные через XHR (action-xhr).
+                      Сервер возвращает JSON с CORS-заголовками; в зависимости
+                      от HTTP-статуса AMP показывает блок [submit-success]
+                      или [submit-error]. CSRF-токен не требуется — путь
+                      /amp/ исключён из CSRF-проверки (см. csrf.py).
+                    #}
+                    <form class="mailform"
+                          method="post"
+                          action-xhr="/amp/contacts/submit/"
+                          target="_top">
+                        <fieldset>
+                            <label data-add-placeholder="">
+                                <input type="text" name="name" placeholder="Ваше имя" value=""
+                                       data-constraints="@LettersOnly @NotEmpty">
+                            </label>
+                            <div class="row">
+                                <div class="col-md-6 col-sm-6 col-xs-12">
+                                    <label data-add-placeholder="">
+                                        <input type="email" name="mail" value="" placeholder="Ваш email"
+                                               data-constraints="@Email @NotEmpty">
+                                    </label>
+                                </div>
+                                <div class="col-md-6 col-sm-6 col-xs-12">
+                                    <label data-add-placeholder="">
+                                        <input type="tel" name="phone" value="" placeholder="Телефон"
+                                               data-constraints="@Phone">
+                                    </label>
+                                </div>
+                            </div>
+                            <label data-add-placeholder="" class="textarea">
+                                <textarea name="message" placeholder="Текст сообщения"
+                                          data-constraints="@NotEmpty"></textarea>
+                            </label>
+                            <div class="mfControls">
+                                <button class="btn btn-primary btn-sm" type="submit">Отправить</button>
+                            </div>
+                        </fieldset>
+
+                        {# --- Ответы сервера (показываются amp-form) --- #}
+                        <div submit-success>
+                            <div class="form-success-msg">
+                                Спасибо! Ваше сообщение отправлено. Мы свяжемся с вами в ближайшее время.
+                            </div>
+                        </div>
+                        <div submit-error>
+                            <div class="form-error-msg">
+                                Произошла ошибка при отправке. Пожалуйста, попробуйте позже
+                                или позвоните нам: <a href="tel:+74994998474" style="color:#fff;text-decoration:underline">8(499)499-84-74</a>.
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Карта (Яндекс.Карты через amp-iframe)                               #}
+{# AMP не позволяет подключить Yandex Maps JS API напрямую.            #}
+{# Static Maps API требует отдельный платный ключ (отличный от JS API),#}
+{# поэтому используем widget-формат — он бесплатный, без API-ключа    #}
+{# и работает в amp-iframe.                                            #}
+{# ------------------------------------------------------------------ #}
+<section class="contacts-map map">
+    <amp-iframe width="600"
+                title="ООО ВеКо"
+                height="200"
+                layout="responsive"
+                sandbox="allow-scripts allow-same-origin allow-popups"
+                frameborder="0"
+                src="https://yandex.ru/map-widget/v1/?ll=38.450595%2C55.775893&z=16&pt=38.450595%2C55.775893%2Cpm2blm&l=map">
+        {# Fallback — показывается до загрузки iframe #}
+        <amp-img placeholder
+                 layout="fill"
+                 src="{{ request.url_for('static', path='images/common/footer_bg.jpg') }}"
+                 alt="Карта — ООО ВеКо"></amp-img>
+    </amp-iframe>
+</section>
+{% endblock %}
+
+{# --- SEO: JSON-LD ContactPage + LocalBusiness --- #}
+{% block json_ld %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    "name": "Контакты — ВеКо",
+    "url": "{{ site_url }}/contacts/",
+    "mainEntity": {
+        "@type": "LocalBusiness",
+        "name": "ВеКо — приём электронного лома",
+        "telephone": ["+7-499-499-84-74", "+7-917-599-52-22", "+7-926-509-02-63"],
+        "email": "vekomet@gmail.com",
+        "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "ул. Пионерская, 22",
+            "addressLocality": "Электросталь",
+            "addressRegion": "Московская область",
+            "addressCountry": "RU"
+        },
+        "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": 55.775893,
+            "longitude": 38.450595
+        }
+    }
+}
+</script>
+{% endblock %}

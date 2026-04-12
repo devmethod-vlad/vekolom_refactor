@@ -5,33 +5,59 @@ description = "Vekolom FastAPI service"
 requires-python = ">=3.12,<3.13"
 readme = "README.md"
 dependencies = [
+  # Web framework
   "fastapi>=0.115,<0.116",
   "uvicorn[standard]>=0.32,<0.33",
   "gunicorn>=22,<23",
+  # Pydantic / settings
   "pydantic>=2.9,<3",
+  "pydantic-settings>=2.12.0",
+  # Templates
   "jinja2>=3.1.6",
+  "markupsafe>=2.1",
+  # Database
   "sqlalchemy>=2.0.45",
   "psycopg2-binary>=2.9.11",
+  "asyncpg>=0.31.0",
   "alembic>=1.17.2",
-  "pydantic-settings>=2.12.0",
+  # Forms / multipart (needed for admin file upload)
   "python-multipart>=0.0.20",
-  "starlette-admin>=0.16.0",
-  "user-agents>=2.2.0",
+  # Admin UI
+  "starlette-admin[i18n]>=0.16.0,<0.17.0",
+  "itsdangerous>=2.2.0",          # SessionMiddleware
+  # DI
   "dishka>=1.7.2",
+  # ---------------------------------------------------------------------------
+  # Медиафайлы
+  # ---------------------------------------------------------------------------
+  # Обработка изображений — аналог Pillow из Django imagekit
+  "pillow>=10.4.0",
+  # Async file I/O (используется при сохранении загруженных файлов)
+  "aiofiles>=23.2.1",
+  # ---------------------------------------------------------------------------
+  # Celery + брокер
+  # ---------------------------------------------------------------------------
+  # Task queue — аналог celery из Django-проекта
+  "celery>=5.4.0",
+  # Redis — брокер сообщений (аналог CELERY_BROKER_URL=redis://...)
+  "redis>=5.2.0",
+  # Flower — веб-монитор очереди (опционально, можно убрать если не нужен)
+  "flower>=2.0.1",
+  # User-agent parsing (оставляем, может понадобиться позже)
+  "user-agents>=2.2.0",
+  "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8.3",
   "pytest-asyncio>=0.23",
-  "httpx>=0.27",
   "ruff>=0.6",
   "mypy>=1.11",
 ]
 
-[build-system]
-requires = ["hatchling>=1.20"]
-build-backend = "hatchling.build"
+[tool.uv]
+package = false
 
 [tool.ruff]
 line-length = 100

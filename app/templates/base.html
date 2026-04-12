@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+{#
+  Jinja2 base template — общий шаблон проекта, адаптированный из core/base.html (Django).
+
+  Переменные, которые роутер должен передавать в контекст:
+    seo        — объект Seo | None
+    debug_flag — bool (settings.DEBUG)
+
+  Глобальные переменные (зарегистрированы в TemplatesProvider):
+    site_url         — каноничный домен (https://vekolom.ru)
+    og_image_default — абсолютный URL к OG-изображению по умолчанию
+
+  Статика монтируется в FastAPI как:
+    app.mount(settings.static.mount_path, StaticFiles(directory=settings.static.STATIC_ROOT), name="static")
+  Медиафайлы монтируются отдельно:
+    app.mount(settings.media.mount_path, StaticFiles(directory=settings.media.MEDIA_ROOT), name="media")
+
+  Порядок загрузки скриптов
+  --------------------------
+  1. @vite/client              — в <head>: HMR инициализируется до любых ES-модулей.
+  2. legacy_scripts('...')     — legacy-скрипты (jQuery + плагины).
+     По умолчанию подключается модуль 'base'. Дочерний шаблон переопределяет
+     блок legacy_scripts_block, указывая свой модуль (например, 'home'),
+     который через extend наследует base. Один вызов — все скрипты.
+  3. vite_scripts('base.js')   — современный JS-бандл, type="module".
+  4. vite_page_scripts блок    — страничный Vite-бандл (переопределяется в дочернем шаблоне).
+
+  Подключение стилей
+  -------------------
+  1. Vite CSS                  — стили из Vite-бандла (в prod — <link>, в dev — через HMR).
+  2. custom_css('модуль')      — пользовательские CSS из custom_css.json.
+     В dev — отдельные <link> теги, в prod — один минифицированный бандл.
+     Дочерний шаблон переопределяет блок custom_css, указывая свой модуль.
+
+  Разделение legacy и modern JS объясняется в:
+    app/infrastructure/web/legacy_assets.py
+
+  SEO-блоки (переопределяются в дочерних шаблонах)
+  --------------------------------------------------
+  canonical     — <link rel="canonical">, обязателен для каждой страницы.
+  og_meta       — Open Graph мета-теги (og:title, og:description, og:url, og:image).
+  json_ld       — JSON-LD структурированные данные (Schema.org).
+#}
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="yandex-verification" content="659741f1c81c0cde">
+    <meta name="google-site-verification" content="lL38D2hwYUVGvwkvPwOqlNT1ApVj4KaR98mIhJKGUEg">
+
+    {# Preconnect к внешним доменам — браузер заранее устанавливает соединение,
+       ускоряя загрузку скриптов аналитики и шрифтов. #}
+    <link rel="preconnect" href="https://mc.yandex.ru" crossorigin>
+    <link rel="dns-prefetch" href="https://mc.yandex.ru">
+
+    <link href="{{ request.url_for('static', path='images/common/favicon.ico') }}" rel="shortcut icon" type="image/x-icon">
+    <link rel="manifest" href="{{ request.url_for('static', path='pwa/manifest.json') }}">
+
+    {# PWA: мета-теги для корректного отображения при установке на устройство.
+       theme-color — цвет адресной строки / status bar в мобильных браузерах.
+       apple-touch-icon — иконка на домашнем экране iOS (Safari не читает manifest.json).
+       apple-mobile-web-app-capable — включает standalone-режим в Safari на iOS.
+       apple-mobile-web-app-status-bar-style — стиль статусбара iOS в standalone.
+    #}
+    <meta name="theme-color" content="#0a68a3">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Vekolom">
+    <link rel="apple-touch-icon" href="{{ request.url_for('static', path='pwa/icons/icon180x180.png') }}">
+
+    {# --- SEO: title + description + keywords --- #}
+    {% block meta %}
+        {% if seo %}
+        <title>{{ seo.title }}</title>
+        <meta name="keywords" content="{{ seo.keywords }}">
+        <meta name="description" content="{{ seo.description }}">
+        {% endif %}
+    {% endblock %}
+
+    {# --- SEO: canonical URL ---
+       Каждая страница ДОЛЖНА переопределять этот блок с правильным canonical.
+       Canonical предотвращает дублирование контента в индексе поисковиков
+       (например, https://vekolom.ru/ vs https://vekolom.ru/?utm_source=...).
+    #}
+    {% block canonical %}{% endblock %}
+
+    {# --- SEO: Open Graph мета-теги ---
+       Используются при шаринге ссылки в соцсетях (VK, Telegram, Facebook).
+       og:type, og:locale, og:site_name задаются здесь (общие для всех страниц).
+       og:title, og:description, og:url, og:image — переопределяются в дочерних шаблонах.
+    #}
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:site_name" content="Веколом — приём электронного лома">
+    {% block og_meta %}{% endblock %}
+
+    {% block link_amp %}{% endblock %}
+    {% block css %}
+        {{ custom_css('base') }}
+{#        {{ vite_styles('src/js/entries/base.js') }}#}
+    {% endblock %}
+    {% block preload_js %}
+{#        {{ vite_preloads('src/js/entries/base.js') }}#}
+    {% endblock %}
+
+    {#
+      Пользовательские CSS (custom_css.json).
+      В dev — отдельные <link> теги, в prod — один минифицированный бандл.
+      Дочерний шаблон переопределяет этот блок для подключения страничных стилей.
+
+      Пример в дочернем шаблоне:
+        {% block custom_css %}{{ custom_css('home') }}{% endblock %}
+
+      Модуль 'home' через extend наследует 'base', поэтому один вызов
+      подключает и базовые, и страничные стили.
+    #}
+    {% block extra_css %}{% endblock %}
+    {% block header_js %}{% endblock %}
+
+    {#
+      @vite/client: инициализирует HMR-соединение с Vite dev server.
+      Размещён в <head>, чтобы HMR-клиент был готов до выполнения любого
+      ES-модуля на странице — это требование Vite для корректной работы HMR.
+
+      render_dev_client() возвращает пустую строку в production-режиме,
+      поэтому тег безопасен здесь в обоих окружениях.
+      Намеренно НЕ оборачиваем в {% if debug_flag %}: метод уже содержит
+      эту проверку внутри себя (settings.app.DEBUG), дублировать не нужно.
+    #}
+{#    {{ vite_dev_client() }}#}
+</head>
+<body>
+<div class="page">
+
+    {% block header %}{% endblock %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block footer %}{% endblock %}
+
+</div>
+
+{#
+  Скрытый nav был нужен некоторым JS-плагинам (SuperFish и пр.).
+  Для поисковых роботов скрытый дублирующий контент нежелателен —
+  aria-hidden="true" сигнализирует assistive technology и роботам,
+  что этот блок не несёт самостоятельного контента.
+#}
+<nav style="display: none" aria-hidden="true" class="navbar navbar-default navbar-static-top">
+    <ul class="navbar-nav sf-menu navbar-right" data-type="navbar">
+        <li class="active"><a href="/">Главная</a></li>
+        <li><a href="/pricelist/">Прайс-лист</a></li>
+        <li class="dropdown"><a href="/contacts/">Контакты</a></li>
+    </ul>
+</nav>
+
+{% block js %}
+    {#
+      Legacy-скрипты: jQuery и плагины должны быть в window до того,
+      как выполнится современный Vite-бандл (type="module").
+
+      По умолчанию подключается модуль 'base'. Дочерний шаблон
+      переопределяет блок legacy_scripts_block, указывая свой модуль.
+
+      Модуль, указанный в extend манифеста, автоматически наследует
+      все скрипты родительских модулей. Поэтому для страницы, которая
+      расширяет 'base', достаточно одного вызова — например:
+
+      {{ legacy_scripts('home') }}
+
+      Dev:  legacy_scripts('home') → <script> для каждого файла base + home.
+      Prod: legacy_scripts('home') → один <script src=".../legacy.home.min.js">.
+    #}
+   {{ legacy_scripts('base') }}
+
+    {# Современный JS-бандл: type="module", обрабатывается Vite. #}
+{#    {{ vite_scripts('src/js/entries/base.js') }}#}
+{% endblock %}
+
+{% block extra_js %}{% endblock %}
+
+{# --- SEO: JSON-LD структурированные данные (Schema.org) ---
+   Дочерний шаблон переопределяет этот блок для вставки
+   структурированных данных конкретной страницы.
+   JSON-LD размещается перед </body> — не блокирует рендер,
+   а парсеры поисковиков считывают его при индексации.
+#}
+{% block json_ld %}{% endblock %}
+
+{# Yandex.Metrika counter
+   Используем актуальный tag.js вместо устаревшего watch.js.
+   tag.js — рекомендуемый Яндексом формат подключения с 2017 года,
+   поддерживает все современные возможности Метрики.
+#}
+<script type="text/javascript">
+   (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+   m[i].l=1*new Date();
+   for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+   k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+   (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+
+   ym(36744865, "init", {
+        clickmap:true,
+        trackLinks:true,
+        accurateTrackBounce:true,
+        webvisor:true
+   });
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/36744865" style="position:absolute; left:-9999px;" alt=""></div></noscript>
+<!-- /Yandex.Metrika counter -->
+
+{#
+  PWA: регистрация Service Worker и подключение к SSE-стриму обновлений.
+  Скрипт загружается async — не блокирует рендер страницы.
+  Подробнее: static/pwa/pwa-register.js
+#}
+<script src="{{ request.url_for('static', path='pwa/pwa-register.js') }}" async></script>
+</body>
+</html>

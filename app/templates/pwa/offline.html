@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+{#
+  Offline-страница PWA.
+
+  Показывается Service Worker-ом, когда:
+    - Сеть недоступна.
+    - Запрошенная страница отсутствует в кеше.
+
+  Страница самодостаточна: не зависит от внешних CSS/JS/шрифтов,
+  все стили инлайнятся. Это важно — при отсутствии сети внешние
+  ресурсы тоже могут быть недоступны.
+
+  Цветовая схема совпадает с основным theme_color проекта (#0a68a3).
+#}
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Нет подключения — Vekolom</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                         'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            text-align: center;
+        }
+        .offline-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 24px;
+            opacity: 0.6;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #0a68a3;
+            margin-bottom: 12px;
+        }
+        p {
+            font-size: 16px;
+            color: #666;
+            max-width: 400px;
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+        .retry-btn {
+            display: inline-block;
+            padding: 12px 32px;
+            background: #0a68a3;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .retry-btn:hover {
+            background: #085a8c;
+        }
+        .retry-btn:active {
+            background: #064b75;
+        }
+    </style>
+</head>
+<body>
+    {# SVG-иконка «нет сети» — инлайн, чтобы не зависеть от внешних файлов. #}
+    <svg class="offline-icon" viewBox="0 0 24 24" fill="none" stroke="#0a68a3" stroke-width="1.5">
+        <path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+
+    <h1>Нет подключения к интернету</h1>
+    <p>
+        Проверьте подключение к сети и попробуйте снова.
+        Ранее посещённые страницы могут быть доступны из кеша.
+    </p>
+
+    <button class="retry-btn" onclick="window.location.reload()">
+        Попробовать снова
+    </button>
+</body>
+</html>

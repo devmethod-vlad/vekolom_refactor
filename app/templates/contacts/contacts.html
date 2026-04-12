@@ -1,0 +1,315 @@
+{% extends 'base.html' %}
+{#
+  Jinja2 contacts template — адаптировано из contacts/dev/contacts.html (Django).
+
+  Ключевые отличия от Django-шаблона:
+  1. {% load static %} — убран (не нужен в Jinja2).
+  2. {% static '...' %} → {{ request.url_for('static', path='...') }}
+  3. {% csrf_token %} → {{ csrf_input(request) }} (CSRF-защита через
+     Double Submit Cookie, см. app/infrastructure/web/csrf.py).
+  4. seo — Sequence[ContactsSeo], итерируем {% for s in seo %} как в Django.
+  5. contacts — Sequence[ContactInfo], итерируем {% for contact in contacts %}.
+  6. form — dict с ключами name, phone, mail, message.
+  7. errors — list[str] с ошибками валидации.
+  8. Проверка iOS (django-user-agents) → <picture> с webp/jpg fallback в футере.
+  9. debug_flag передаётся из роутера (settings.DEBUG).
+  10. Django {{ form.name }} → {{ form.get('name', '') }} (dict вместо объекта).
+  11. yandex_maps_api_key — API-ключ Яндекс.Карт (из модуля apikeys).
+  12. smartcaptcha_client_key — публичный ключ SmartCaptcha (из модуля apikeys).
+
+  SEO-изменения:
+  - Добавлен canonical URL.
+  - Добавлены Open Graph мета-теги.
+  - Исправлен битый путь к логотипу (пробел в 'images/common/ logo.png').
+  - Добавлен alt-атрибут к логотипу в header.
+  - Yandex SmartCaptcha загружается с defer (не блокирует рендер).
+  - Добавлен preconnect к Yandex Maps и SmartCaptcha.
+  - Исправлен путь к WhatsApp-иконке в footer (было common/images/).
+  - Footer приведён к единому формату с <picture> (как в home/pricelist).
+  - Google Maps заменены на Yandex Maps API 2.1.
+  - Google reCAPTCHA заменена на Yandex SmartCaptcha.
+
+  Контекст роутера:
+    debug_flag, seo, contacts, form, errors,
+    yandex_maps_api_key, smartcaptcha_client_key
+#}
+
+{% block meta %}
+    {% for s in seo %}
+    <title>{{ s.title }}</title>
+    <meta name="keywords" content="{{ s.keywords }}">
+    <meta name="description" content="{{ s.description }}">
+    {% endfor %}
+{% endblock %}
+
+{# --- AMP: ссылка на AMP-версию страницы контактов ---
+   Поисковые системы используют эту ссылку для обнаружения AMP-версии.
+   Парная ссылка <link rel="canonical"> находится в amp/contacts.html. #}
+{% block link_amp %}
+    <link rel="amphtml" href="{{ site_url }}/amp/contacts/">
+{% endblock %}
+
+{# --- SEO: canonical URL для страницы контактов --- #}
+{% block canonical %}
+    <link rel="canonical" href="{{ site_url }}/contacts/">
+{% endblock %}
+
+{# --- SEO: Open Graph мета-теги --- #}
+{% block og_meta %}
+    {% for s in seo %}
+    <meta property="og:title" content="{{ s.title }}">
+    <meta property="og:description" content="{{ s.description }}">
+    {% endfor %}
+    <meta property="og:url" content="{{ site_url }}/contacts/">
+    <meta property="og:image" content="{{ og_image_default }}">
+{% endblock %}
+
+{% block extra_css %}
+ {{ custom_css('contacts') }}
+{% endblock %}
+
+{# Yandex SmartCaptcha + Yandex Maps: preconnect и загрузка скриптов #}
+{% block header_js %}
+    <link rel="preconnect" href="https://api-maps.yandex.ru">
+    <link rel="dns-prefetch" href="https://api-maps.yandex.ru">
+    <link rel="preconnect" href="https://smartcaptcha.cloud.yandex.ru">
+    <script src="https://smartcaptcha.cloud.yandex.ru/captcha.js" defer></script>
+{% endblock %}
+
+{% block header %}
+    <header>
+        <div id="stuck_container" class="stuck_container">
+            <div class="wr">
+                <div class="custom-navbar-header">
+                    <div class="brand-wrapper">
+                       <div class="brand-header-wr">
+                         <a href="/">
+                             <h1 class="custom-brand">ВЕКО</h1>
+                         </a>
+                       </div>
+                      <div class="logo-header-wr">
+                          {# ИСПРАВЛЕНО: убран лишний пробел в пути 'images/common/ logo.png' → 'images/common/logo.png'.
+                             Добавлен alt-атрибут для доступности и SEO. #}
+                          <img alt="Приём электронного лома — Веколом"
+                               class="custom-brand-responsive"
+                               width="150" height="50"
+                               src="{{ request.url_for('static', path='images/common/logo.png') }}">
+                      </div>
+                    </div>
+                    <div class="slogan-wrapper">
+                        <p class="navbar-brand-slogan">ПРИЕМ <br>ЭЛЕКТРОННОГО ЛОМА</p>
+                    </div>
+                    <div class="phone-wrapper">
+                        <div class="phones">
+                           <p class="navbar-phone-item"><a href="tel:+74994998474">8(499)499-84-74</a></p>
+                           <p class="navbar-phone-item"><a href="tel:+79175995222">8(917)599-52-22</a></p>
+                           <p class="navbar-phone-item">
+                               <a href="https://wa.me/79265090263">
+                                   8(926)509-02-63&nbsp;&nbsp;<img width="20" height="20" alt="WhatsApp"
+                                       src="{{ request.url_for('static', path='images/common/whatsapp_150.png') }}">
+                               </a>
+                           </p>
+                        </div>
+                    </div>
+                </div>
+
+                <nav class="customnavbar custom-navbar-default custom-navbar-static-top">
+                    <div class="custom-navbar-nav custom-sf-menu custom-navbar-right">
+                        <div class="nav-item">
+                                <div class="item"><a href="/">Главная</a></div>
+                        </div>
+                        <div class="nav-item">
+                            <div class="item"><a href="/pricelist/">Прайс-лист</a></div>
+                        </div>
+                        <div class="nav-item nav-item-active">
+                            <div class="item"><a href="/contacts/">Контакты</a></div>
+                        </div>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </header>
+{% endblock %}
+
+{% block content %}
+   <section class="map">
+            <div id="yandex-map" class="map_model"></div>
+        </section>
+
+        <section class="well-contacts">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-4 col-sm-6 col-xs-12 contact-list">
+                        <h2 class="text-center">Контакты</h2>
+                        <div class="contact-text-wrapper">
+                          {% for contact in contacts %}
+                          {{ contact.text|safe }}
+                          {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-8 col-sm-6 col-xs-12">
+                        <h2 class="text-center">Оставьте сообщение</h2>
+                        {% if errors %}
+                        {% for er in errors %}
+                        <p class="error">{{ er }}</p>
+                        {% endfor %}
+                        {% endif %}
+                        <div class="cform">
+                            <form class="mailform" method="post" action="">
+                                {# CSRF-защита: Double Submit Cookie #}
+                                {{ csrf_input(request) }}
+                                <fieldset>
+                                    <label data-add-placeholder="">
+                                        <input type="text"
+                                               name="name"
+                                               placeholder="Ваше имя"
+                                               value="{{ form.get('name', '') }}"
+                                               data-constraints="@LettersOnly @NotEmpty">
+                                    </label>
+
+                                    <div class="row">
+                                        <div class="col-md-6 col-sm-6 col-xs-12">
+                                            <label data-add-placeholder="">
+                                                <input type="email"
+                                                       name="mail"
+                                                       value="{{ form.get('mail', '') }}"
+                                                       placeholder="Ваш email"
+                                                       data-constraints="@Email @NotEmpty">
+                                            </label>
+                                        </div>
+
+                                        <div class="col-md-6 col-sm-6 col-xs-12">
+                                            <label data-add-placeholder="">
+                                                <input type="tel"
+                                                       name="phone"
+                                                       value="{{ form.get('phone', '') }}"
+                                                       placeholder="Телефон"
+                                                       data-constraints="@Phone">
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <label data-add-placeholder="" class="textarea">
+                                        <textarea name="message" placeholder="Текст сообщения"
+                                                  data-constraints="@NotEmpty">{{ form.get('message', '') }}</textarea>
+                                    </label>
+                                    {# Yandex SmartCaptcha: captcha.js автоматически находит div с классом smart-captcha
+                                       и встраивает виджет. После прохождения проверки внутрь добавляется
+                                       <input type="hidden" name="smart-token" value="...">
+                                       Высота 100px задана заранее, чтобы избежать сдвига лейаута при загрузке. #}
+                                    <div id="captcha-container"
+                                         class="smart-captcha form-group"
+                                         data-sitekey="{{ smartcaptcha_client_key }}"
+                                         style="height:100px"></div>
+                                    <div class="mfControls">
+                                        <button class="btn btn-primary btn-sm" type="submit">Отправить</button>
+                                    </div>
+                                </fieldset>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+        </section>
+{% endblock %}
+
+{# Footer — приведён к единому формату с home.html и pricelist.html:
+   используется <picture> с webp/jpg fallback вместо inline background-image.
+   Исправлен путь к WhatsApp-иконке (было 'common/images/', стало 'images/common/'). #}
+{% block footer %}
+    <footer style="position: relative; background: #3a393a; color: #fff; overflow: hidden;">
+        <picture>
+            <source srcset="{{ request.url_for('static', path='images/common/footer_bg.webp') }}" type="image/webp">
+            <img src="{{ request.url_for('static', path='images/common/footer_bg.jpg') }}"
+                 style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:0; pointer-events:none;"
+                 alt=""
+                 loading="lazy">
+        </picture>
+        <section class="center767" style="position: relative; z-index: 1;">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-4 col-sm-6 col-xs-12">
+                        <h5>Звоните или пишите нам</h5>
+                        <p class="pcustom pcustom-footer"><a class="a-pcustom-footer" href="tel:+74994998474">8(499)499-84-74</a></p>
+                        <p class="pcustom pcustom-footer"><a class="a-pcustom-footer" href="tel:+79175995222">8(917)599-52-22</a></p>
+                        <p class="pcustom pcustom-footer">
+                            {# ИСПРАВЛЕНО: путь 'common/images/whatsapp_150.png' → 'images/common/whatsapp_150.png' #}
+                            <a class="a-pcustom-footer" href="https://wa.me/79265090263">
+                                8(926)509-02-63&nbsp;&nbsp;<img width="20" height="20" alt="WhatsApp"
+                                    src="{{ request.url_for('static', path='images/common/whatsapp_150.png') }}">
+                            </a>
+                        </p>
+                        <p class="pcustom pcustom-footer"><a class="a-pcustom-footer" href="mailto:vekomet@gmail.com">vekomet@gmail.com</a></p>
+                        <p class="pcustom"><a href="/contacts/">Оставить сообщение</a></p>
+                    </div>
+                    <div class="col-md-offset-1 col-md-3 col-sm-6 col-sm-offset-0 col-xs-12">
+                        <h5>Мы находимся по адресу:</h5>
+                        <p class="pcustom">Московская область</p>
+                        <p class="pcustom">г.Электросталь. ул.Пионерская 22</p>
+                        <p class="pcustom">График работы:</p>
+                        <p class="pcustom">пн-пт: 8.00-18.00 | cб: 8.00-12.00</p>
+                        <p class="pcustom">обед: 13.00-14.00</p>
+                        <p class="pcustom">вс: выходной</p>
+                    </div>
+                    <div class="col-md-4 col-sm-4 col-xs-12">
+                        <div class="logo-footer-wrapper">
+                            <img alt="Электронный лом" class="img-responsive"
+                                 src="{{ request.url_for('static', path='images/common/logofooter.png') }}"
+                                 loading="lazy">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="copyright" style="position: relative; z-index: 1;">
+            <div class="container">&copy; <span id="copyright-year"></span>&nbsp; Powered by FastAPI &nbsp;<a
+                    href="#">Зюзин Владимир</a>
+            </div>
+        </section>
+    </footer>
+{% endblock %}
+
+{% block extra_js %}
+{# --- Стили карты: полная ширина --- #}
+<style>
+    #yandex-map {
+        width: 100%;
+        height: 450px;
+    }
+    @media (max-width: 767px) {
+        #yandex-map {
+            height: 320px;
+        }
+    }
+</style>
+
+{# --- Yandex Maps API 2.1 --- #}
+<script src="https://api-maps.yandex.ru/2.1/?apikey={{ yandex_maps_api_key }}&lang=ru_RU"></script>
+<script>
+ymaps.ready(function () {
+    var map = new ymaps.Map('yandex-map', {
+        center: [55.775893, 38.450595],
+        zoom: 16,
+        controls: ['zoomControl', 'geolocationControl', 'typeSelector']
+    });
+
+    map.geoObjects.add(new ymaps.Placemark(
+        [55.775893, 38.450595],
+        {
+            balloonContentHeader: 'ООО «ВеКо»',
+            balloonContentBody: 'Приём электронного лома<br>ул. Пионерская, 22, Электросталь',
+            hintContent: 'ООО «ВеКо»'
+        },
+        {
+            preset: 'islands#blueIndustryCircleIcon'
+        }
+    ));
+
+    // Отключаем зум скроллом — чтобы не мешал прокрутке страницы
+    map.behaviors.disable('scrollZoom');
+});
+</script>
+{% endblock %}
