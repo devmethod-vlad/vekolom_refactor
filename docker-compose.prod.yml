@@ -31,6 +31,22 @@ services:
       - default
       - vekolom-service-network
 
+  celery_backup_vekolom:
+    build:
+      context: .
+      target: prod
+    networks:
+      - default
+      - vekolom-service-network
+
+  celery_beat_vekolom:
+    build:
+      context: .
+      target: prod
+    networks:
+      - default
+      - vekolom-service-network
+
 networks:
   default:
     driver: bridge

@@ -21,3 +21,33 @@ services:
       - CELERY_BROKER_URL=redis://redis-vekolom:6379/0
       - CELERY_RESULT_BACKEND=redis://redis-vekolom:6379/0
     restart: unless-stopped
+
+  celery_backup_vekolom:
+    container_name: celery_backup_vekolom
+    command: >
+      celery -A app.infrastructure.celery.worker worker
+      --loglevel=info
+      --queues=backups
+      --concurrency=1
+    volumes:
+      - ./:/vekolom
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=redis://redis-vekolom:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-vekolom:6379/0
+    restart: unless-stopped
+
+  celery_beat_vekolom:
+    container_name: celery_beat_vekolom
+    command: >
+      celery -A app.infrastructure.celery.worker beat
+      --loglevel=info
+    volumes:
+      - ./:/vekolom
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=redis://redis-vekolom:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-vekolom:6379/0
+    restart: unless-stopped
