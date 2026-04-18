@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 import typing as tp
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -339,6 +339,88 @@ class CelerySettings(EnvBaseSettings):
     timezone: str = "Europe/Moscow"
 
 
+class BackupSettings(EnvBaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_prefix="backup_")
+
+    ENABLED: bool = False
+    INCLUDE_DIRS: list[str] = Field(default_factory=lambda: ["media", "static"])
+    IGNORE_FILE: str = ".backupignore"
+    EXCLUDE_PATTERNS: list[str] = Field(default_factory=list)
+    TEMP_DIR: str = "tmp/backups"
+    FILENAME_PREFIX: str = "files_backup_"
+    REMOTE_DIR: str = ""
+    RETENTION_COUNT: int = 10
+    SCHEDULE_CRON: str | None = None
+    INTERVAL_MINUTES: int | None = None
+    LOG_FILE: str = "logs/files_backup.log"
+    LOG_LEVEL: str = "INFO"
+    TIMEZONE: str = "Europe/Moscow"
+    WEBDAV_BASE_URL: str = ""
+    WEBDAV_USERNAME: str = ""
+    WEBDAV_PASSWORD: SecretStr = SecretStr("")
+    VERIFY_TLS: bool = True
+    REQUEST_TIMEOUT_SECONDS: int = 120
+    LOCK_REDIS_URL: str | None = None
+    LOCK_KEY: str = "vekolom:backup:files:lock"
+    LOCK_TTL_SECONDS: int = 7200
+    FOLLOW_SYMLINKS: bool = False
+    WRITE_SHA256: bool = True
+
+    @property
+    def effective_lock_redis_url(self) -> str:
+        if self.LOCK_REDIS_URL:
+            return self.LOCK_REDIS_URL
+        raise ValueError("Backup lock Redis URL is not configured")
+
+    @model_validator(mode="after")
+    def validate_paths_and_schedule(self) -> tp.Self:
+        if self.SCHEDULE_CRON and self.INTERVAL_MINUTES:
+            raise ValueError(
+                "Нельзя одновременно задавать BACKUP_SCHEDULE_CRON и BACKUP_INTERVAL_MINUTES"
+            )
+
+        if self.ENABLED and not self.INCLUDE_DIRS:
+            raise ValueError("BACKUP_INCLUDE_DIRS не может быть пустым при BACKUP_ENABLED=true")
+        if self.ENABLED:
+            if not self.REMOTE_DIR:
+                raise ValueError("BACKUP_REMOTE_DIR обязателен при BACKUP_ENABLED=true")
+            if not self.WEBDAV_BASE_URL:
+                raise ValueError("BACKUP_WEBDAV_BASE_URL обязателен при BACKUP_ENABLED=true")
+            if not self.WEBDAV_USERNAME:
+                raise ValueError("BACKUP_WEBDAV_USERNAME обязателен при BACKUP_ENABLED=true")
+            if not self.WEBDAV_PASSWORD.get_secret_value():
+                raise ValueError("BACKUP_WEBDAV_PASSWORD обязателен при BACKUP_ENABLED=true")
+
+        for include in self.INCLUDE_DIRS:
+            include_path = Path(include)
+            if include_path.is_absolute():
+                raise ValueError(f"BACKUP_INCLUDE_DIRS содержит абсолютный путь: {include}")
+            if ".." in include_path.parts:
+                raise ValueError(f"BACKUP_INCLUDE_DIRS содержит небезопасный сегмент '..': {include}")
+
+        ignore_path = Path(self.IGNORE_FILE)
+        if ignore_path.is_absolute() or ".." in ignore_path.parts:
+            raise ValueError("BACKUP_IGNORE_FILE должен быть относительным путём внутри проекта")
+
+        temp_path = Path(self.TEMP_DIR)
+        if temp_path.is_absolute() or ".." in temp_path.parts:
+            raise ValueError("BACKUP_TEMP_DIR должен быть относительным путём внутри проекта")
+
+        if self.INTERVAL_MINUTES is not None and self.INTERVAL_MINUTES <= 0:
+            raise ValueError("BACKUP_INTERVAL_MINUTES должен быть > 0")
+
+        if self.RETENTION_COUNT <= 0:
+            raise ValueError("BACKUP_RETENTION_COUNT должен быть > 0")
+
+        if self.REQUEST_TIMEOUT_SECONDS <= 0:
+            raise ValueError("BACKUP_REQUEST_TIMEOUT_SECONDS должен быть > 0")
+
+        if self.LOCK_TTL_SECONDS <= 0:
+            raise ValueError("BACKUP_LOCK_TTL_SECONDS должен быть > 0")
+
+        return self
+
+
 class ViteSettings(EnvBaseSettings):
     """Settings for Vite-powered frontend assets.
 
@@ -379,10 +461,17 @@ class Settings(EnvBaseSettings):
     upload: UploadPhotoSettings = Field(default_factory=UploadPhotoSettings)
     admin_tinymce: AdminTinyMCEEditorSettings = Field(default_factory=AdminTinyMCEEditorSettings)
     celery: CelerySettings = Field(default_factory=CelerySettings)
+    backup: BackupSettings = Field(default_factory=BackupSettings)
     vite: ViteSettings = Field(default_factory=ViteSettings)
     legacy: LegacyAssetsSettings = Field(default_factory=LegacyAssetsSettings)
     custom_css: CustomCSSSettings = Field(default_factory=CustomCSSSettings)
     seo: SeoSettings = Field(default_factory=SeoSettings)
+
+    @model_validator(mode="after")
+    def finalize_backup_settings(self) -> tp.Self:
+        if not self.backup.LOCK_REDIS_URL and self.celery.broker_url.startswith("redis://"):
+            self.backup.LOCK_REDIS_URL = self.celery.broker_url
+        return self
 
 
 settings = Settings()

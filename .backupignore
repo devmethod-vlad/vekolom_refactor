@@ -1,0 +1,22 @@
+# Temporary/runtime files
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+logs/
+*.log
+
+# Frontend build caches
+frontend/node_modules/
+frontend/.vite/
+
+# Git and local service files
+.git/
+*.sqlite3
+
+# Default: exclude generated backup temp files
+tmp/backups/
+
+# Example negation pattern:
+#!media/important/**

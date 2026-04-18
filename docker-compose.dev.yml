@@ -21,6 +21,22 @@ services:
       - default
       - vekolom-service-network
 
+  celery_backup_vekolom:
+    build:
+      context: .
+      target: dev
+    networks:
+      - default
+      - vekolom-service-network
+
+  celery_beat_vekolom:
+    build:
+      context: .
+      target: dev
+    networks:
+      - default
+      - vekolom-service-network
+
   frontend_vekolom:
     build:
       context: ./frontend

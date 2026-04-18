@@ -26,11 +26,14 @@ Django (оригинал, pricelist):
 сохранением записи и запуском задачи.
 """
 
+import logging
 import os
 import time
 
+import httpx
 from sqlalchemy import create_engine, update
 
+from app.infrastructure.backup.service import BackupLockNotAcquiredError, FilesBackupService
 from app.infrastructure.celery.worker import celery_app
 from app.infrastructure.media.image_processor import make_webp_sync
 from app.modules.home.infrastructure.sa_models import MainCarousel
@@ -223,3 +226,34 @@ def regenerate_pricelist_excel(self) -> None:
         raise self.retry(exc=exc, countdown=10)
     finally:
         engine.dispose()
+
+
+@celery_app.task(
+    bind=True,
+    acks_late=True,
+    queue="backups",
+    max_retries=3,
+    default_retry_delay=30,
+)
+def run_files_backup(self) -> dict:
+    """Runs static/media backup to WebDAV storage."""
+    backup_logger = logging.getLogger("app.backup")
+    backup_logger.info("Backup Celery task started")
+    service = FilesBackupService(settings.backup)
+
+    try:
+        summary = service.run(force=False)
+    except BackupLockNotAcquiredError:
+        backup_logger.warning("Backup task skipped due to active lock")
+        return {"status": "skipped", "reason": "lock_not_acquired"}
+    except httpx.HTTPError as exc:
+        backup_logger.exception("WebDAV network error during backup")
+        raise self.retry(exc=exc, countdown=60)
+
+    backup_logger.info("Backup Celery task completed: %s", summary.archive_name)
+    return {
+        "status": "ok",
+        "archive_name": summary.archive_name,
+        "remote_archive_path": summary.remote_archive_path,
+        "deleted_remote_files": summary.deleted_remote_files,
+    }
