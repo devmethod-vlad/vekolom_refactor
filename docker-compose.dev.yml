@@ -4,7 +4,8 @@ services:
       context: .
       target: dev
     command: >
-      bash -c "
+      bash -lc "
+        python utils/wait-for-services.py &&
         uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT} --reload
       "
     ports:
@@ -41,19 +42,19 @@ services:
     build:
       context: ./frontend
     container_name: frontend_vekolom
-    command: sh -c "npm run dev -- --host 0.0.0.0 --port 5173"
+    command: sh -c "npm run dev -- --host 0.0.0.0 --port ${FRONTEND_PORT}"
     env_file:
       - .env
     environment:
       CHOKIDAR_USEPOLLING: "true"
-      FRONTEND_HMR_HOST: "localhost"
-      FRONTEND_HMR_PORT: "5173"
-      FRONTEND_HMR_PROTOCOL: "ws"
+      FRONTEND_HMR_HOST: ${FRONTEND_HMR_HOST}
+      FRONTEND_HMR_PORT: ${FRONTEND_HMR_PORT}
+      FRONTEND_HMR_PROTOCOL: ${FRONTEND_HMR_PROTOCOL}
     volumes:
       - ./frontend:/frontend
       - frontend_node_modules:/frontend/node_modules
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
     networks:
       - default
       - vekolom-service-network

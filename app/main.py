@@ -27,6 +27,7 @@ from contextlib import asynccontextmanager
 
 from dishka.integrations.fastapi import setup_dishka
 from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.staticfiles import StaticFiles
 
@@ -130,7 +131,10 @@ def create_app() -> FastAPI:
     # чтобы его scope охватывал весь сайт. Файл лежит в static/pwa/sw.js,
     # но браузер ограничивает scope SW путём, откуда он загружен.
     # Поэтому проксируем через route на /.
-    from fastapi.responses import FileResponse
+    @app.get("/health", include_in_schema=False)
+    async def health() -> dict[str, str]:
+        """Минимальный health endpoint для container healthcheck'ов."""
+        return {"status": "ok"}
 
     @app.get("/sw.js", include_in_schema=False)
     async def service_worker():
