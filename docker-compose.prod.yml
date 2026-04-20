@@ -4,7 +4,7 @@ services:
       context: .
       target: prod
     healthcheck:
-      test: [ "CMD-SHELL", "curl -fsS http://127.0.0.1:${APP_PORT}/health || exit 1" ]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${APP_PORT}/health || exit 1"]
       interval: 30s
       timeout: 3s
       retries: 5
@@ -16,14 +16,14 @@ services:
         python utils/wait-for-services.py &&
         uv run --no-sync gunicorn
           -k uvicorn.workers.UvicornWorker
-          -w {GUNICORN_WORKERS}
+          -w ${GUNICORN_WORKERS:-2}
           -b ${APP_HOST}:${APP_PORT}
           --timeout ${GUNICORN_TIMEOUT}
           --graceful-timeout ${GUNICORN_GRACEFUL_TIMEOUT}
           'app.main:app'
       "
 
-  celery_worker:
+  celery_vekolom:
     build:
       context: .
       target: prod

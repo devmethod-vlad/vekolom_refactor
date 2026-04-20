@@ -1,5 +1,73 @@
 # vekolom
 
+## Runtime compose/logging схема (prod-friendly)
+
+### Согласованные сервисы
+
+Во всех compose-файлах используются единые имена runtime-сервисов:
+
+- `vekolom`
+- `celery_vekolom`
+- `celery_backup_vekolom`
+- `celery_beat_vekolom`
+
+### Переменные окружения для runtime
+
+Ключевые переменные вынесены в `.env`:
+
+- Redis/Celery: `REDIS_HOST`, `REDIS_PORT`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`
+- Startup wait: `WAIT_TIMEOUT`
+- Frontend dev: `FRONTEND_PORT`, `FRONTEND_HMR_HOST`, `FRONTEND_HMR_PORT`, `FRONTEND_HMR_PROTOCOL`
+- Concurrency: `CELERY_WORKER_CONCURRENCY`, `CELERY_BACKUP_WORKER_CONCURRENCY`
+- Host logs root: `HOST_LOG_ROOT`
+- Per-service logging:
+  - `VEKOLOM_LOG_TO_FILE`, `VEKOLOM_LOG_LEVEL`
+  - `CELERY_VEKOLOM_LOG_TO_FILE`, `CELERY_VEKOLOM_LOG_LEVEL`
+  - `CELERY_BACKUP_VEKOLOM_LOG_TO_FILE`, `CELERY_BACKUP_VEKOLOM_LOG_LEVEL`
+  - `CELERY_BEAT_VEKOLOM_LOG_TO_FILE`, `CELERY_BEAT_VEKOLOM_LOG_LEVEL`
+
+Внутри контейнеров используется унифицированный runtime контракт:
+
+- `SERVICE_NAME`
+- `LOG_TO_FILE`
+- `LOG_LEVEL`
+- `LOG_FILE`
+
+Compose маппит эти значения из service-specific переменных.
+
+### Логирование
+
+- `stdout` включён всегда (удобно для `docker logs`).
+- File logging включается только флагом `*_LOG_TO_FILE=true`.
+- Ротация не используется (обычный `logging.FileHandler`).
+- Схема единая для FastAPI, Celery worker, backup worker и beat.
+- Инициализация логирования идемпотентна: повторные вызовы не дублируют handlers.
+- По умолчанию file logging выключен.
+
+### Host log mounts
+
+Каждый runtime-сервис пишет в отдельный bind mount:
+
+- `${HOST_LOG_ROOT}/vekolom:/vekolom/logs` → `/vekolom/logs/vekolom.log`
+- `${HOST_LOG_ROOT}/celery_vekolom:/vekolom/logs` → `/vekolom/logs/celery_vekolom.log`
+- `${HOST_LOG_ROOT}/celery_backup_vekolom:/vekolom/logs` → `/vekolom/logs/celery_backup_vekolom.log`
+- `${HOST_LOG_ROOT}/celery_beat_vekolom:/vekolom/logs` → `/vekolom/logs/celery_beat_vekolom.log`
+
+### Startup orchestration
+
+- `utils/wait-for-services.py` ждёт только нужные зависимости через `WAIT_FOR`.
+  - `vekolom` ждёт `postgres`.
+  - Celery-сервисы ждут `redis`.
+- Есть strict-режим (`WAIT_STRICT=true`): при недоступности зависимости процесс завершается с non-zero кодом.
+- Исправлено имя env-порта БД: `POSTGRES_PORT` (вместо старого `POSTGRES_POST`).
+
+### Порядок старта внутри compose
+
+- `celery_vekolom` и `celery_backup_vekolom` имеют healthcheck через `celery inspect ping`.
+- `vekolom` запускается после `celery_vekolom: healthy`.
+- `celery_beat_vekolom` зависит от `celery_backup_vekolom: healthy` (важно: именно beat зависит от backup worker).
+- У `vekolom` healthcheck через `GET /health`.
+
 ## Локальная установка зависимостей
 
 #### Установка зависимости в контейнер приложения
