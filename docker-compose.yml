@@ -7,13 +7,20 @@ services:
       SERVICE_NAME: vekolom
       LOG_TO_FILE: ${VEKOLOM_LOG_TO_FILE:-false}
       LOG_LEVEL: ${VEKOLOM_LOG_LEVEL:-INFO}
-      LOG_FILE: /vekolom/logs/vekolom.log
+      LOG_FILE: /vekolom/logs/app.log
+      ACCESS_LOG_ENABLED: ${VEKOLOM_ACCESS_LOG_ENABLED:-false}
+      ACCESS_LOG_FILE: /vekolom/logs/access.log
       WAIT_FOR: postgres
       WAIT_STRICT: "true"
     command: >
       bash -lc "
         python utils/wait-for-services.py &&
-        uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT}
+        if [ \"$${ACCESS_LOG_ENABLED:-false}\" = \"true\" ]; then
+          ACCESS_LOG_ARGS='--access-log';
+        else
+          ACCESS_LOG_ARGS='--no-access-log';
+        fi &&
+        uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT} ${ACCESS_LOG_ARGS}
       "
     expose:
       - ${APP_PORT}

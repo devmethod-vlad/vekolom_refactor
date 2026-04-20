@@ -6,7 +6,12 @@ services:
     command: >
       bash -lc "
         python utils/wait-for-services.py &&
-        uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT} --reload
+        if [ \"$${ACCESS_LOG_ENABLED:-false}\" = \"true\" ]; then
+          ACCESS_LOG_ARGS='--access-log';
+        else
+          ACCESS_LOG_ARGS='--no-access-log';
+        fi &&
+        uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT} --reload ${ACCESS_LOG_ARGS}
       "
     ports:
       - ${APP_PORT}:${APP_PORT}
