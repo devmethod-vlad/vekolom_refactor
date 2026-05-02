@@ -1,0 +1,65 @@
+services:
+  
+  postgresdb-vekolom:
+    image: postgres:17
+    container_name: postgresdb-vekolom
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      TZ: 'Europe/Moscow'
+      PGTZ: 'Europe/Moscow'
+      POSTGRES_EXTENSIONS: pg_trgm
+    expose:
+      - 5432
+    shm_size: '2gb'
+    volumes:
+      - ./services/postgresdb/data:/var/lib/postgresql/data
+      - ./services/postgresdb/home:/home
+    ports:
+      - 5434:5432
+    networks:
+      - default
+      - vekolom-service-network
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=300"
+      - "-c"
+      - "work_mem=100 MB"
+      - "-c"
+      - "maintenance_work_mem=200 MB"
+  
+  pgadmin-vekolom:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin-vekolom
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "5050:80"
+    networks:
+      - default
+      - vekolom-service-network
+    volumes:
+      - ./services/pgadmin:/var/lib/pgadmin
+  
+  redis-vekolom:
+    image: "redis:alpine"
+    container_name: redis-vekolom
+    restart: unless-stopped
+    networks:
+      - default
+      - vekolom-service-network
+    environment:
+      - TZ=Europe/Moscow
+    expose:
+      - 6379
+
+networks:
+  default:
+    driver: bridge
+
+  vekolom-service-network:
+    name: vekolom-service-network
+    external: true

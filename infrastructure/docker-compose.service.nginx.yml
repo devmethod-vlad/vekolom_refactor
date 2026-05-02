@@ -1,0 +1,49 @@
+# =============================================================================
+# docker-compose.service.nginx.yml — Общий nginx reverse proxy.
+#
+# Подключается к основному сервисному compose через COMPOSE_FILE:
+#   COMPOSE_FILE='docker-compose.service.yml;docker-compose.service.nginx.yml'
+#
+# Переключение окружения:
+#   NGINX_ENV=dev   — активирует dev-конфиги (*.local домены, расширенный CSP)
+#   NGINX_ENV=prod  — активирует prod-конфиги (реальные домены, SSL-ready)
+#
+# Добавление нового приложения:
+#   1. Создать services/nginx/apps/{app_name}/ с конфигами
+#   2. Добавить volumes для static/media нового приложения (см. ниже)
+#   3. Добавить upstream-хост в NGINX_WAIT_HOSTS
+#   4. Подключить сеть нового приложения в networks
+# =============================================================================
+
+services:
+  nginx-vekolom:
+    container_name: nginx
+    build:
+      context: ./services/nginx
+    environment:
+      - NGINX_ENV=${NGINX_ENV:-prod}
+      # Хосты, готовности которых nginx ждёт перед стартом.
+      # Формат: host1:port1,host2:port2
+      - NGINX_WAIT_HOSTS=${NGINX_WAIT_HOSTS:-vekolom:8001}
+      - NGINX_WAIT_TIMEOUT=${NGINX_WAIT_TIMEOUT:-60}
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      # --- Логи nginx ---
+      - ./logs/nginx:/var/log/nginx
+      # Тома приложений: static и media для каждого обслуживаемого app.    ║
+      # При добавлении нового приложения — добавить пару строк сюда.       ║
+      # --- vekolom ---
+      - ${VEKOLOM_PROJECT_DIR}/static:/data/vekolom/static:ro
+      - ${VEKOLOM_PROJECT_DIR}/media:/data/vekolom/media:ro
+    restart: unless-stopped
+    networks:
+      - vekolom-service-network
+      # При добавлении нового приложения с отдельной сетью:
+      # - app2-service-network
+
+networks:
+  vekolom-service-network:
+    name: vekolom-service-network
+    external: true
