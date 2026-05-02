@@ -5,17 +5,17 @@ services:
       - .env
     environment:
       SERVICE_NAME: vekolom
-      LOG_TO_FILE: ${VEKOLOM_LOG_TO_FILE:-false}
+      LOG_TO_FILE: ${VEKOLOM_LOG_TO_FILE:-true}
       LOG_LEVEL: ${VEKOLOM_LOG_LEVEL:-INFO}
       LOG_FILE: /vekolom/logs/app.log
-      ACCESS_LOG_ENABLED: ${VEKOLOM_ACCESS_LOG_ENABLED:-false}
+      ACCESS_LOG_ENABLED: ${VEKOLOM_ACCESS_LOG_ENABLED:-true}
       ACCESS_LOG_FILE: /vekolom/logs/access.log
-      WAIT_FOR: postgres
+      WAIT_FOR: postgresdb-vekolom
       WAIT_STRICT: "true"
     command: >
       bash -lc "
         python utils/wait-for-services.py &&
-        if [ \"$${ACCESS_LOG_ENABLED:-false}\" = \"true\" ]; then
+        if [ \"$${ACCESS_LOG_ENABLED:-true}\" = \"true\" ]; then
           ACCESS_LOG_ARGS='--access-log';
         else
           ACCESS_LOG_ARGS='--no-access-log';
@@ -26,7 +26,7 @@ services:
       - ${APP_PORT}
     volumes:
       - ./:/vekolom
-      - ${HOST_LOG_ROOT:-./logs}/vekolom:/vekolom/logs
+      - ${HOST_LOG_ROOT}/vekolom:/vekolom/logs
     restart: unless-stopped
     depends_on:
       celery_vekolom:
@@ -38,21 +38,22 @@ services:
       - .env
     environment:
       SERVICE_NAME: celery_vekolom
-      LOG_TO_FILE: ${CELERY_VEKOLOM_LOG_TO_FILE:-false}
+      LOG_TO_FILE: ${CELERY_VEKOLOM_LOG_TO_FILE:-true}
       LOG_LEVEL: ${CELERY_VEKOLOM_LOG_LEVEL:-INFO}
-      LOG_FILE: /vekolom/logs/celery_vekolom.log
-      WAIT_FOR: redis
+      LOG_FILE: /vekolom/logs/celery/celery.log
+      WAIT_FOR: redis-vekolom
       WAIT_STRICT: "true"
-    command: >
-      bash -lc "
+    command:
+      - bash
+      - -lc
+      - |
         python utils/wait-for-services.py &&
-        celery -A app.infrastructure.celery.worker worker
-          --loglevel=${CELERY_VEKOLOM_LOG_LEVEL:-INFO}
+        exec python -m celery -A app.infrastructure.celery.worker worker \
+          --loglevel=${CELERY_VEKOLOM_LOG_LEVEL:-INFO} \
           --concurrency=${CELERY_WORKER_CONCURRENCY:-2}
-      "
     volumes:
       - ./:/vekolom
-      - ${HOST_LOG_ROOT:-./logs}/celery_vekolom:/vekolom/logs
+      - ${HOST_LOG_ROOT}/vekolom/celery:/vekolom/logs/celery
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.infrastructure.celery.worker inspect ping -d celery@$$HOSTNAME --timeout=5 | grep -q pong"]
@@ -67,22 +68,23 @@ services:
       - .env
     environment:
       SERVICE_NAME: celery_backup_vekolom
-      LOG_TO_FILE: ${CELERY_BACKUP_VEKOLOM_LOG_TO_FILE:-false}
+      LOG_TO_FILE: ${CELERY_BACKUP_VEKOLOM_LOG_TO_FILE:-true}
       LOG_LEVEL: ${CELERY_BACKUP_VEKOLOM_LOG_LEVEL:-INFO}
-      LOG_FILE: /vekolom/logs/celery_backup_vekolom.log
-      WAIT_FOR: redis
+      LOG_FILE: /vekolom/logs/celery/celery_backup_vekolom.log
+      WAIT_FOR: redis-vekolom
       WAIT_STRICT: "true"
-    command: >
-      bash -lc "
+    command:
+      - bash
+      - -lc
+      - |
         python utils/wait-for-services.py &&
-        celery -A app.infrastructure.celery.worker worker
-          --loglevel=${CELERY_BACKUP_VEKOLOM_LOG_LEVEL:-INFO}
-          --queues=backups
+        exec python -m celery -A app.infrastructure.celery.worker worker \
+          --loglevel=${CELERY_BACKUP_VEKOLOM_LOG_LEVEL:-INFO} \
+          --queues=backups \
           --concurrency=${CELERY_BACKUP_WORKER_CONCURRENCY:-1}
-      "
     volumes:
       - ./:/vekolom
-      - ${HOST_LOG_ROOT:-./logs}/celery_backup_vekolom:/vekolom/logs
+      - ${HOST_LOG_ROOT}/vekolom/celery/celery_backup_vekolom:/vekolom/logs/celery
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.infrastructure.celery.worker inspect ping -d celery@$$HOSTNAME --timeout=5 | grep -q pong"]
@@ -97,20 +99,21 @@ services:
       - .env
     environment:
       SERVICE_NAME: celery_beat_vekolom
-      LOG_TO_FILE: ${CELERY_BEAT_VEKOLOM_LOG_TO_FILE:-false}
+      LOG_TO_FILE: ${CELERY_BEAT_VEKOLOM_LOG_TO_FILE:-true}
       LOG_LEVEL: ${CELERY_BEAT_VEKOLOM_LOG_LEVEL:-INFO}
-      LOG_FILE: /vekolom/logs/celery_beat_vekolom.log
-      WAIT_FOR: redis
+      LOG_FILE: /vekolom/logs/celery/celery_beat_vekolom.log
+      WAIT_FOR: redis-vekolom
       WAIT_STRICT: "true"
-    command: >
-      bash -lc "
+    command:
+      - bash
+      - -lc
+      - |
         python utils/wait-for-services.py &&
-        celery -A app.infrastructure.celery.worker beat
+        exec python -m celery -A app.infrastructure.celery.worker beat \
           --loglevel=${CELERY_BEAT_VEKOLOM_LOG_LEVEL:-INFO}
-      "
     volumes:
       - ./:/vekolom
-      - ${HOST_LOG_ROOT:-./logs}/celery_beat_vekolom:/vekolom/logs
+      - ${HOST_LOG_ROOT}/vekolom/celery/celery_beat_vekolom:/vekolom/logs/celery
     restart: unless-stopped
     depends_on:
       celery_backup_vekolom:

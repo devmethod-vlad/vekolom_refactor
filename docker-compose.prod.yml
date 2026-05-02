@@ -11,23 +11,26 @@ services:
     networks:
       - default
       - vekolom-service-network
-    command: >
-      bash -lc "
+    command:
+      - bash
+      - -lc
+      - |
         python utils/wait-for-services.py &&
-        if [ \"$${ACCESS_LOG_ENABLED:-false}\" = \"true\" ]; then
-          GUNICORN_ACCESS_ARGS='--access-logfile -';
+        
+        if [ "$${ACCESS_LOG_ENABLED:-false}" = "true" ]; then
+          GUNICORN_ACCESS_ARGS="--access-logfile -"
         else
-          GUNICORN_ACCESS_ARGS='--access-logfile /dev/null';
-        fi &&
-        uv run --no-sync gunicorn
-          -k uvicorn.workers.UvicornWorker
-          -w ${GUNICORN_WORKERS:-2}
-          -b ${APP_HOST}:${APP_PORT}
-          --timeout ${GUNICORN_TIMEOUT}
-          --graceful-timeout ${GUNICORN_GRACEFUL_TIMEOUT}
-          ${GUNICORN_ACCESS_ARGS}
-          'app.main:app'
-      "
+          GUNICORN_ACCESS_ARGS="--access-logfile /dev/null"
+        fi
+        
+        exec uv run --no-sync gunicorn \
+          -k uvicorn.workers.UvicornWorker \
+          -w $${GUNICORN_WORKERS:-2} \
+          -b $${APP_HOST}:$${APP_PORT} \
+          --timeout $${GUNICORN_TIMEOUT} \
+          --graceful-timeout $${GUNICORN_GRACEFUL_TIMEOUT} \
+          $${GUNICORN_ACCESS_ARGS} \
+          app.main:app
 
   celery_vekolom:
     build:
