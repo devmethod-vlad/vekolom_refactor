@@ -5,7 +5,7 @@ services:
       target: dev
     command:
       - bash
-      - -lc
+      - -c
       - |
         python utils/wait-for-services.py &&
         

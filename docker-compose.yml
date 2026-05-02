@@ -12,16 +12,22 @@ services:
       ACCESS_LOG_FILE: /vekolom/logs/access.log
       WAIT_FOR: postgresdb-vekolom
       WAIT_STRICT: "true"
-    command: >
-      bash -lc "
+    command:
+      - bash
+      - -c
+      - |
         python utils/wait-for-services.py &&
-        if [ \"$${ACCESS_LOG_ENABLED:-true}\" = \"true\" ]; then
-          ACCESS_LOG_ARGS='--access-log';
+        
+        if [ "$${ACCESS_LOG_ENABLED:-true}" = "true" ]; then
+          ACCESS_LOG_ARGS="--access-log"
         else
-          ACCESS_LOG_ARGS='--no-access-log';
-        fi &&
-        uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT} ${ACCESS_LOG_ARGS}
-      "
+          ACCESS_LOG_ARGS="--no-access-log"
+        fi
+        
+        exec uvicorn app.main:app \
+          --host $${APP_HOST} \
+          --port $${APP_PORT} \
+          $${ACCESS_LOG_ARGS}
     expose:
       - ${APP_PORT}
     volumes:
@@ -45,7 +51,7 @@ services:
       WAIT_STRICT: "true"
     command:
       - bash
-      - -lc
+      - -c
       - |
         python utils/wait-for-services.py &&
         exec python -m celery -A app.infrastructure.celery.worker worker \
@@ -75,7 +81,7 @@ services:
       WAIT_STRICT: "true"
     command:
       - bash
-      - -lc
+      - -c
       - |
         python utils/wait-for-services.py &&
         exec python -m celery -A app.infrastructure.celery.worker worker \
@@ -84,7 +90,7 @@ services:
           --concurrency=${CELERY_BACKUP_WORKER_CONCURRENCY:-1}
     volumes:
       - ./:/vekolom
-      - ${HOST_LOG_ROOT}/vekolom/celery/celery_backup_vekolom:/vekolom/logs/celery
+      - ${HOST_LOG_ROOT}/vekolom/celery:/vekolom/logs/celery
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.infrastructure.celery.worker inspect ping -d celery@$$HOSTNAME --timeout=5 | grep -q pong"]
@@ -106,14 +112,14 @@ services:
       WAIT_STRICT: "true"
     command:
       - bash
-      - -lc
+      - -c
       - |
         python utils/wait-for-services.py &&
         exec python -m celery -A app.infrastructure.celery.worker beat \
           --loglevel=${CELERY_BEAT_VEKOLOM_LOG_LEVEL:-INFO}
     volumes:
       - ./:/vekolom
-      - ${HOST_LOG_ROOT}/vekolom/celery/celery_beat_vekolom:/vekolom/logs/celery
+      - ${HOST_LOG_ROOT}/vekolom/celery:/vekolom/logs/celery
     restart: unless-stopped
     depends_on:
       celery_backup_vekolom:
